@@ -1,0 +1,13 @@
+node_modules/
+dist/
+backend/data/auth_secret.txt
+backend/data/users/
+backend/data/upload_*
+backend/data/report_*
+catboost_info/
+*.log
+*.pid
+*.bak
+__pycache__/
+*.pyc
+.claude/
