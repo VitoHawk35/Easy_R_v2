@@ -70,6 +70,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading }) => {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      {/* E7a 过渡措施（不需方案确认）：固定警示语 */}
+      <Alert
+        type="warning"
+        showIcon
+        message="变量筛选在全部数据上完成，内部验证结果偏乐观"
+      />
       {result.summary && (
         <Alert message={result.summary} type="info" showIcon />
       )}
