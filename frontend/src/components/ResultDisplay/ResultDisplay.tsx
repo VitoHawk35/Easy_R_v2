@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Table, Typography, Space, Alert, Tabs, Button } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import type { MLResult } from '@/types';
+import { sanitizeSvg } from '@/utils/sanitizeSvg';
 
 const { Text } = Typography;
 
@@ -31,7 +32,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading }) => {
     children: (
       <Card size="small" title={chart.title}>
         {chart.type === 'svg' ? (
-          <div dangerouslySetInnerHTML={{ __html: chart.data }} style={{ maxWidth: '100%', overflow: 'auto' }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeSvg(chart.data) }} style={{ maxWidth: '100%', overflow: 'auto' }} />
         ) : (
           <img src={`data:image/png;base64,${chart.data}`} alt={chart.title} style={{ maxWidth: '100%' }} />
         )}

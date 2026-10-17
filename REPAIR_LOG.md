@@ -113,3 +113,12 @@
 - **方案**: 直接构造含重复的样本下标 `idx`——有分组时按 `chosen` 拼接各组全部样本下标（`pos_by_unit` 循环外预计算），无分组时 `idx = chosen`；`X.iloc[idx]` / `y[idx]` 训练，重复样本保留。OOB 定义为 `np.setdiff1d(arange(n), idx)`（从未被抽中的样本；分组时即整组未被抽中）。表观 AUC 改用 `Xb, yb`，`auc_test` 仍在原始全样本上计算，OOB 用 `X.iloc[oob]`。
 - 返回字典新增 `"resampling": "with_replacement"`；`validation_service.py` 表格与 summary 同步注明"有放回重抽样、重复单位保留"。
 - **测试**: 新增 `backend/tests/test_bootstrap.py`（4 项：无分组训练行数恒为 n；分组训练行数=被抽中组样本数之和且组集合一致；OOB 组与 chosen 不相交；demo+logistic+B=50 满足 `corrected_auc ≤ apparent_auc` 且 `n_boot ≥ 45`）。全量 `pytest -q`: 6 passed。
+
+## 2026-10-17 · task-E5 安全与健壮性
+
+- **CORS**：`main.py` 不再 `allow_origins=["*"]`，改为环境变量 `EASYR_CORS_ORIGINS`（逗号分隔，默认空列表，适用于生产经 nginx 同源访问）；`allow_credentials=True` 保留。
+- **上传大小**：`routers/datasets.py` 分块复制并累计字节，超过 `EASYR_MAX_UPLOAD_MB`（默认 50）返回 413；`frontend/nginx.conf` 增加 `client_max_body_size 50m;`。
+- **users.json 并发写**：`services/auth_service.py` 用 `users.json.lock` 包住注册的“读—改—写”；Linux 用 `fcntl.flock`，Windows 本地测试用 `msvcrt` 字节锁兜底；原子写临时文件名追加 pid + 线程号，避免互相覆盖。
+- **重启后数据集找不到**：`services/data_service.py` 的 `assert_dataset_access` 在确认权限后顺带把数据加载进进程内缓存，修复 `get_data_for_ml` 不传 `user_id` 时 `get_dataset` 误报“数据集不存在”。
+- **SVG 注入**：新增 `dompurify` 依赖；`ResultDisplay.tsx` 先经 `sanitizeSvg`（`USE_PROFILES: {svg, svgFilters}`）清洗再 `dangerouslySetInnerHTML`；新增 vitest 测试。
+- **部署配置**：`frontend/.env.production` 改为 `VITE_API_BASE_URL=/api`（同源经 nginx）；生产实际端口与 CORS 取值仍为 🧑‍⚖️ D2，待人工确认。

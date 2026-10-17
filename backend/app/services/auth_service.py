@@ -1,12 +1,14 @@
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
 import os
 import secrets
+import threading
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Dict, Iterator
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -14,8 +16,19 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.models.schemas import UserPublic
 from app.services.data_service import DATA_DIR
 
+try:  # POSIX
+    import fcntl
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None
+
+try:  # Windows
+    import msvcrt
+except ImportError:  # pragma: no cover - POSIX
+    msvcrt = None
+
 USERS_DIR = os.path.join(DATA_DIR, "users")
 USERS_FILE = os.path.join(USERS_DIR, "users.json")
+USERS_LOCK_FILE = f"{USERS_FILE}.lock"
 SECRET_FILE = os.path.join(DATA_DIR, "auth_secret.txt")
 TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 security = HTTPBearer()
@@ -27,8 +40,6 @@ def _now() -> str:
 
 def _ensure_storage() -> None:
     os.makedirs(USERS_DIR, exist_ok=True)
-    if not os.path.exists(USERS_FILE):
-        _atomic_write_json(USERS_FILE, [])
     if not os.path.exists(SECRET_FILE):
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(SECRET_FILE, "w", encoding="utf-8") as f:
@@ -37,16 +48,74 @@ def _ensure_storage() -> None:
 
 def _atomic_write_json(path: str, data: Any) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp_path = f"{path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp_path, path)
+    # pid + 线程号：避免并发写同一个临时文件互相覆盖/删除
+    tmp_path = f"{path}.tmp.{os.getpid()}.{threading.get_ident()}"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+def _lock_users_file(lock_file) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        return
+    if msvcrt is not None:  # pragma: no cover - Windows
+        lock_file.seek(0)
+        while True:
+            try:
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.01)
+
+
+def _unlock_users_file(lock_file) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:  # pragma: no cover - Windows
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+@contextlib.contextmanager
+def _users_lock() -> Iterator[None]:
+    """对 users.json.lock 加排他锁，保护 users.json 的“读—改—写”。
+
+    生产是 Linux，走 fcntl.flock；Windows 本地测试退化为 msvcrt 字节锁。
+    """
+    os.makedirs(USERS_DIR, exist_ok=True)
+    with open(USERS_LOCK_FILE, "a+b") as lock_file:
+        if os.name == "nt":  # pragma: no cover - Windows
+            lock_file.seek(0, os.SEEK_END)
+            if lock_file.tell() == 0:
+                lock_file.write(b"\0")
+                lock_file.flush()
+        _lock_users_file(lock_file)
+        try:
+            yield
+        finally:
+            _unlock_users_file(lock_file)
+
+
+def _load_users_unlocked() -> list[Dict[str, Any]]:
+    _ensure_storage()
+    if not os.path.exists(USERS_FILE):
+        _atomic_write_json(USERS_FILE, [])
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def _load_users() -> list[Dict[str, Any]]:
-    _ensure_storage()
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with _users_lock():
+        return _load_users_unlocked()
 
 
 def _save_users(users: list[Dict[str, Any]]) -> None:
@@ -118,19 +187,20 @@ def register_user(username: str, password: str) -> tuple[str, UserPublic]:
         raise ValueError("用户名不能为空")
     if len(password) < 6:
         raise ValueError("密码至少需要6位")
-    users = _load_users()
-    if any(_normalize_username(u["username"]) == normalized for u in users):
-        raise ValueError("用户名已存在")
-    salt = secrets.token_urlsafe(16)
-    user = {
-        "id": f"u_{secrets.token_urlsafe(12)}",
-        "username": normalized,
-        "salt": salt,
-        "password_hash": _hash_password(password, salt),
-        "created_at": _now(),
-    }
-    users.append(user)
-    _save_users(users)
+    with _users_lock():
+        users = _load_users_unlocked()
+        if any(_normalize_username(u["username"]) == normalized for u in users):
+            raise ValueError("用户名已存在")
+        salt = secrets.token_urlsafe(16)
+        user = {
+            "id": f"u_{secrets.token_urlsafe(12)}",
+            "username": normalized,
+            "salt": salt,
+            "password_hash": _hash_password(password, salt),
+            "created_at": _now(),
+        }
+        users.append(user)
+        _save_users(users)
     user_dir = os.path.join(USERS_DIR, user["id"])
     os.makedirs(os.path.join(user_dir, "datasets"), exist_ok=True)
     os.makedirs(os.path.join(user_dir, "history"), exist_ok=True)
