@@ -113,3 +113,12 @@
 - **方案**: 直接构造含重复的样本下标 `idx`——有分组时按 `chosen` 拼接各组全部样本下标（`pos_by_unit` 循环外预计算），无分组时 `idx = chosen`；`X.iloc[idx]` / `y[idx]` 训练，重复样本保留。OOB 定义为 `np.setdiff1d(arange(n), idx)`（从未被抽中的样本；分组时即整组未被抽中）。表观 AUC 改用 `Xb, yb`，`auc_test` 仍在原始全样本上计算，OOB 用 `X.iloc[oob]`。
 - 返回字典新增 `"resampling": "with_replacement"`；`validation_service.py` 表格与 summary 同步注明"有放回重抽样、重复单位保留"。
 - **测试**: 新增 `backend/tests/test_bootstrap.py`（4 项：无分组训练行数恒为 n；分组训练行数=被抽中组样本数之和且组集合一致；OOB 组与 chosen 不相交；demo+logistic+B=50 满足 `corrected_auc ≤ apparent_auc` 且 `n_boot ≥ 45`）。全量 `pytest -q`: 6 passed。
+
+## 2026-10-17 · task-E1 报告下载安全（P0）
+
+- `backend/app/services/auth_service.py`：签名密钥优先读取环境变量 `EASYR_AUTH_SECRET`；未设置时读取 `EASYR_SECRET_FILE`（默认 `DATA_DIR/../secrets/auth_secret.txt`，已移出 `DATA_DIR`），不存在则生成并 `chmod 600`。`DATA_DIR/auth_secret.txt` 不再创建或读取。
+- `backend/app/services/report_service.py`：`generate_word_report` / `generate_pdf_report` 增加 `user_id` 参数，报告输出到 `DATA_DIR/users/{user_id}/reports/report_{yyyymmddHHMMSS}_{secrets.token_urlsafe(12)}.{docx|pdf}`。
+- `backend/app/routers/report.py`：生成接口传入 `current_user.id`；下载接口先按 `^report_[0-9]{14}_[A-Za-z0-9_-]{16}\.(docx|pdf)$` 校验文件名，再用 `os.path.realpath` 限定在 `DATA_DIR/users/{current_user.id}/reports/` 下，否则一律 404。
+- `frontend/src/services/api.ts`：新增 `downloadReportFile(filename)`，用带 `Authorization` 的 axios blob 请求 + 临时 `<a download>` 下载；`Step10Report.tsx` 下载按钮改为 `onClick`，预览 iframe 增加 `sandbox=""`。
+- 新增 `backend/tests/test_report_security.py`（密钥不可下载、env 密钥签名/轮换、密钥文件位置、报告属主校验、旧式文件名拒绝）。
+- 上线必须更换 `EASYR_AUTH_SECRET`：旧密钥可能已泄露，所有已发 token 失效属预期行为。
