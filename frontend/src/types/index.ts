@@ -87,6 +87,7 @@ export interface MLResult {
   summary: string;
   download_urls: string[];
   model_info?: Record<string, any>;
+  removed_vars?: string[];
 }
 
 export interface User {
@@ -155,6 +156,7 @@ export interface FilterConfig {
   useLasso: boolean;
   lassoLambda: 'min' | '1se';
   useRF: boolean;
+  rfTopK: number;
   useBoruta: boolean;
   borutaRuns: number;
   borutaP: number;
@@ -177,6 +179,7 @@ export interface WizardState {
   isSurvival: boolean;
   timeVariable: string;
   groupVariable: string;
+  idVariables: string[];
   allVariables: VariableInfo[];
   transformConfig: DataTransformConfig;
   transformResult: DataTransformResponse | null;
@@ -190,6 +193,7 @@ export interface WizardState {
   compareModels: string[];
   forcedIncludeVars: string[];
   modelParams: Record<string, any>;
+  modelFeatures: string[];
   buildResult: MLResult | null;
   bestModel: string;
   evalResults: MLResult | null;
@@ -200,6 +204,8 @@ export interface WizardState {
   modelInfo: Record<string, any> | null;
   currentStep: number;
   completedSteps: Set<number>;
+  /** 上游变更后被清空、需要重跑的步骤 */
+  staleSteps: Set<number>;
 }
 
 export const ALGORITHMS: AlgorithmConfig[] = [

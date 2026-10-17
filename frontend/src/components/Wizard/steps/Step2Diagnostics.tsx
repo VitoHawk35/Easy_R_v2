@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Form, InputNumber, Switch, Button, Space, Alert, Badge, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, featureCandidates } from '@/context/WizardContext';
 import { runML, runDiagnostics } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
 import { buildVariableTypes, type MLResult } from '@/types';
@@ -12,9 +12,8 @@ const Step2Diagnostics: React.FC = () => {
   const [loadingVif, setLoadingVif] = useState(false);
   const [loadingMissing, setLoadingMissing] = useState(false);
 
-  const xVars = allVariables
-    .map((v) => v.name)
-    .filter((n) => n !== yVariable && n !== timeVariable);
+  // E4d：统一特征候选，排除 Y / 时间 / 分组 / ID 变量
+  const xVars = featureCandidates(state);
 
   const runVif = async () => {
     if (!datasetId || !yVariable) {
@@ -42,14 +41,11 @@ const Step2Diagnostics: React.FC = () => {
       const res = await runML('vif', buildRequest(payload));
       dispatch({ type: 'SET_DIAGNOSIS_RESULT', payload: res });
 
-      // Extract removed vars from summary if autoRemove
-      if (diagnosisConfig.autoRemove && res.summary) {
-        const match = res.summary.match(/自动移除了\d+个变量: (.+)/);
-        if (match) {
-          const removed = match[1].split(',').map((s) => s.trim());
-          dispatch({ type: 'SET_REMOVED_VARS', payload: removed });
-        }
-      }
+      // E4e：直接从 model_info.removed_vars / removed_vars 读取，不再解析 summary 文本
+      const removed = diagnosisConfig.autoRemove
+        ? (res.removed_vars ?? res.model_info?.removed_vars ?? [])
+        : [];
+      dispatch({ type: 'SET_REMOVED_VARS', payload: removed });
       markComplete(1);
       message.success('VIF诊断完成');
     } catch (e: any) {

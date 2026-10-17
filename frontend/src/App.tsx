@@ -4,6 +4,7 @@ import { HistoryOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons
 import type { VariableInfo, DatasetInfo, VariableType } from '@/types';
 import { listDatasets, getVariables } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { WizardProvider, useWizard, loadPersistedWizardState } from '@/context/WizardContext';
 import Sidebar from '@/components/Layout/Sidebar';
 import VariablePanel from '@/components/VariablePanel/VariablePanel';
 import MLPage from '@/pages/MLPage/MLPage';
@@ -19,14 +20,18 @@ interface TabItem {
   datasetId: string;
   algorithm?: string;
   type?: 'algorithm' | 'wizard' | 'history';
-  wizardSnapshot?: any;
 }
 
 const WIZARD_TAB_KEY = 'wizard-analysis';
 const HISTORY_TAB_KEY = 'history-page';
 
-const App: React.FC = () => {
-  const { user, loading: authLoading, logout } = useAuth();
+/**
+ * E4a：WizardProvider 提升到 App 层，包住整个标签页区域。
+ * 切换标签页时 WizardInner 卸载但 Provider 不卸载，向导状态不会丢失。
+ */
+const AppShell: React.FC = () => {
+  const { user, logout } = useAuth();
+  const { dispatch } = useWizard();
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [activeDataset, setActiveDataset] = useState<string>('');
   const [variables, setVariables] = useState<VariableInfo[]>([]);
@@ -66,18 +71,26 @@ const App: React.FC = () => {
   };
 
   const handleEnterWizard = (snapshot?: any) => {
-    setTabs((prev) => prev.filter((t) => t.key !== WIZARD_TAB_KEY));
-    const targetDatasetId = snapshot?.datasetId || activeDataset;
-    const newTab: TabItem = {
-      key: WIZARD_TAB_KEY,
-      label: '机器学习向导',
-      datasetId: targetDatasetId,
-      type: 'wizard',
-      wizardSnapshot: snapshot,
-    };
-    setTabs((prev) => [...prev, newTab]);
+    // 从历史记录恢复：直接 dispatch RESTORE_SNAPSHOT（Provider 已在 App 层）
+    if (snapshot) {
+      dispatch({ type: 'RESTORE_SNAPSHOT', payload: snapshot });
+    }
+    // 刷新/重登后从 sessionStorage 恢复向导时，同步其数据集，避免变量列表不匹配
+    const restored = !snapshot ? loadPersistedWizardState() : null;
+    const targetDatasetId = snapshot?.datasetId || (restored as any)?.datasetId || activeDataset;
+
+    setTabs((prev) => {
+      const next = prev.filter((t) => t.key !== WIZARD_TAB_KEY);
+      next.push({
+        key: WIZARD_TAB_KEY,
+        label: '机器学习向导',
+        datasetId: targetDatasetId,
+        type: 'wizard',
+      });
+      return next;
+    });
     setActiveTab(WIZARD_TAB_KEY);
-    if (targetDatasetId !== activeDataset) {
+    if (targetDatasetId && targetDatasetId !== activeDataset) {
       setActiveDataset(targetDatasetId);
       loadVars(targetDatasetId, false);
     }
@@ -145,7 +158,6 @@ const App: React.FC = () => {
           datasets={datasets}
           onDatasetChange={handleDatasetChange}
           variables={variables}
-          restoreSnapshot={currentTab.wizardSnapshot}
         />
       );
     }
@@ -174,18 +186,6 @@ const App: React.FC = () => {
     );
   };
 
-  if (authLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" tip="正在恢复登录状态..." />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage />;
-  }
-
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sidebar onSelectAlgorithm={handleAddTab} onEnterWizard={handleEnterWizard} />
@@ -195,7 +195,7 @@ const App: React.FC = () => {
             <div />
             <Space>
               <Button icon={<HistoryOutlined />} onClick={handleEnterHistory}>分析历史</Button>
-              <span style={{ color: '#666' }}><UserOutlined /> {user.username}</span>
+              <span style={{ color: '#666' }}><UserOutlined /> {user?.username}</span>
               <Button icon={<LogoutOutlined />} onClick={logout}>退出登录</Button>
             </Space>
           </div>
@@ -232,6 +232,28 @@ const App: React.FC = () => {
         </Content>
       </Layout>
     </Layout>
+  );
+};
+
+const App: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" tip="正在恢复登录状态..." />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  return (
+    <WizardProvider>
+      <AppShell />
+    </WizardProvider>
   );
 };
 

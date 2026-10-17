@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { Card, Select, Button, Space, message, Tabs, Alert } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, effectiveModelFeatures } from '@/context/WizardContext';
 import { runML } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
 import { buildVariableTypes } from '@/types';
 
 const Step7Explain: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, filterResults, bestModel } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, bestModel, modelParams } = state;
   const [activeTab, setActiveTab] = useState('shap');
   const [shapResult, setShapResult] = useState<any>(null);
   const [pdpResult, setPdpResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const finalVars = filterResults.final.length > 0 ? filterResults.final : state.allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
+  // E4c：使用 Step4 实际建模的特征集（含强制纳入变量）与超参数
+  const finalVars = effectiveModelFeatures(state);
+  const modelParamsPayload = { [bestModel]: modelParams[bestModel] || {} };
   const [pdpFeature, setPdpFeature] = useState(finalVars[0] || '');
 
   const runShap = async () => {
@@ -28,7 +30,7 @@ const Step7Explain: React.FC = () => {
         time_variable: timeVariable || undefined,
         x_variables: finalVars,
         filters: [],
-        params: { modelType: bestModel || 'random-forest', testSize: 0.3, format: 'svg' },
+        params: { modelType: bestModel || 'random-forest', model_params: modelParamsPayload, testSize: 0.3, format: 'svg' },
         seed: 123,
         variable_types: buildVariableTypes(state.allVariables),
       }));
@@ -53,7 +55,7 @@ const Step7Explain: React.FC = () => {
         time_variable: timeVariable || undefined,
         x_variables: finalVars,
         filters: [],
-        params: { modelType: bestModel || 'random-forest', feature: pdpFeature, testSize: 0.3, format: 'svg' },
+        params: { modelType: bestModel || 'random-forest', model_params: modelParamsPayload, feature: pdpFeature, testSize: 0.3, format: 'svg' },
         seed: 123,
         variable_types: buildVariableTypes(state.allVariables),
       }));

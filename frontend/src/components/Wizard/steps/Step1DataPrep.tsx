@@ -13,7 +13,7 @@ interface Step1Props {
 
 const Step1DataPrep: React.FC<Step1Props> = ({ datasets, onDatasetChange, variables }) => {
   const { state, dispatch, markComplete, unmarkComplete } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, groupVariable, previewData, previewColumns, transformConfig, transformResult } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, groupVariable, idVariables, previewData, previewColumns, transformConfig, transformResult } = state;
   const [loading, setLoading] = useState(false);
   const [transformEnabled, setTransformEnabled] = useState(false);
   const [transformLoading, setTransformLoading] = useState(false);
@@ -376,6 +376,24 @@ const Step1DataPrep: React.FC<Step1Props> = ({ datasets, onDatasetChange, variab
               onChange={(val) => dispatch({ type: 'SET_GROUP_VARIABLE', payload: val || '' })}
               allowClear
               showSearch
+              options={allVarNames
+                .filter((n) => n !== yVariable && n !== timeVariable)
+                .map((n) => ({ label: n, value: n }))}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, color: '#666' }}>
+              ID 变量（可选，标记后不作为模型特征；名为 id 的列会自动排除）
+            </div>
+            <Select
+              mode="multiple"
+              placeholder="选择 ID 变量"
+              style={{ width: '100%' }}
+              value={idVariables}
+              onChange={(vals) => dispatch({ type: 'SET_ID_VARIABLES', payload: vals })}
+              allowClear
+              showSearch
+              maxTagCount="responsive"
               options={allVarNames
                 .filter((n) => n !== yVariable && n !== timeVariable)
                 .map((n) => ({ label: n, value: n }))}

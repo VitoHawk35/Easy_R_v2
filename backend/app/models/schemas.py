@@ -29,6 +29,7 @@ class MLResult(BaseModel):
     summary: str = ""
     download_urls: List[str] = []
     model_info: Dict[str, Any] = Field(default_factory=dict, description="模型元信息，含coefficients/intercept等")
+    removed_vars: List[str] = Field(default_factory=list, description="自动移除的变量列表（VIF诊断等）")
 
 class MLRequest(BaseModel):
     dataset_id: str = Field(..., description="数据集ID")
