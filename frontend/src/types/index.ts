@@ -6,6 +6,10 @@ export interface VariableInfo {
   range_str: string;
   missing_count: number;
   unique_count: number;
+  // E3a：Web 计算器表单所需的水平/取值范围（后端新增字段，旧数据可为空）
+  levels?: string[];
+  min_value?: number | null;
+  max_value?: number | null;
 }
 
 export interface DatasetInfo {
@@ -69,6 +73,11 @@ export interface TableData {
   title: string;
   headers: string[];
   rows: any[][];
+}
+
+export interface PredictionResponse {
+  probability: number;
+  linear_predictor: number;
 }
 
 export interface MLResult {
@@ -321,6 +330,7 @@ export const ALGORITHMS: AlgorithmConfig[] = [
     params: [
       { name: 'maxDepth', label: '最大深度', type: 'number', default: 5, min: 1, max: 20, step: 1 },
       { name: 'minSamplesSplit', label: '最小分裂样本', type: 'number', default: 2, min: 2, max: 50, step: 1 },
+      { name: 'minSamplesLeaf', label: '叶子最小样本', type: 'number', default: 1, min: 1, max: 50, step: 1 },
       { name: 'criterion', label: '分裂标准', type: 'select', default: 'gini', options: [{ label: 'Gini', value: 'gini' }, { label: 'Entropy', value: 'entropy' }] },
       { name: 'testSize', label: '测试集比例', type: 'slider', default: 0.3, min: 0.1, max: 0.5, step: 0.05 },
       { name: 'seed', label: '随机数种子', type: 'number', default: 123, min: 1, max: 9999, step: 1 },
@@ -414,7 +424,7 @@ export const ALGORITHMS: AlgorithmConfig[] = [
     category: '梯度提升',
     params: [
       { name: 'iterations', label: '迭代次数', type: 'number', default: 500, min: 50, max: 5000, step: 50 },
-      { name: 'learning_rate', label: '学习率', type: 'number', default: 0.1, min: 0.01, max: 1.0, step: 0.01 },
+      { name: 'learningRate', label: '学习率', type: 'number', default: 0.1, min: 0.01, max: 1.0, step: 0.01 },
       { name: 'depth', label: '树深度', type: 'number', default: 6, min: 2, max: 12, step: 1 },
       { name: 'testSize', label: '测试集比例', type: 'slider', default: 0.3, min: 0.1, max: 0.5, step: 0.05 },
       { name: 'seed', label: '随机数种子', type: 'number', default: 123, min: 1, max: 9999, step: 1 },

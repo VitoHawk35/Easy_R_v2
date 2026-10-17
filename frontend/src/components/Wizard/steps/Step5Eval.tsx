@@ -37,9 +37,11 @@ const Step5Eval: React.FC = () => {
 
       const commonParams = {
         modelType: bestModel,
-        testSize: evalDataset === 'train' ? 0.0 : 0.3,
+        // E3h：始终传 0.3；train/both 由后端 evalDataset 选择评估集合
+        testSize: 0.3,
         evalDataset,
         threshold,
+        model_params: { [bestModel]: modelParams[bestModel] || {} },
         format: 'svg',
       };
 

@@ -105,3 +105,39 @@
 - 新增 `backend/app/settings.py`，通过 `EASYR_DATA_DIR` / `EASYR_DEMO_PATH` 配置数据目录与演示数据路径，默认保持原 `backend/data/` 行为。
 - `data_service.py` 与 `report_service.py` 改为从 settings 读取路径，避免测试写入仓库数据目录。
 - 新增 `backend/tests/` 冒烟测试脚手架、`backend/requirements-dev.txt`；测试覆盖 `/api/health` 与登录后的 `/api/ml/logistic`。
+
+## 2026-10-17 · task-E3 统计正确性（a–h）
+
+### E3a 网页计算器与列线图概率
+- **文件**: `backend/app/services/ml/predict_service.py`（新增）、`nomogram_service.py`、`backend/app/routers/ml.py`、`frontend/src/components/Wizard/steps/Step6Visual.tsx`
+- **改动**: 新增 `POST /api/ml/predict`（MLRequest + `params.input`），后端按 Step4 同模型同参数在训练集拟合 Pipeline，LRU(16) 缓存，返回 `probability` 与原始尺度 `linear_predictor`；前端计算器改为表单（连续 InputNumber / 分类 Select，水平取自 `/datasets/{id}/variables` 新增的 `levels`），删除前端直接乘系数。
+- **统计约定**: 系数还原 `β_raw=β_scaled/σ`、`b0_raw=b0−Σβ·μ/σ`（哑变量列同样按 scaler 反变换）；列线图 `points_j(x)=100·|β_j|·(x−x_min)/max_k(|β_k|·range_k)`（β<0 轴反向）；概率轴由 `sigmoid(lp)` 反解总分位置，不使用线性近似。仅支持 logistic/lasso/elastic-net。
+
+### E3b 校准斜率与 CITL
+- **文件**: `backend/app/services/core/metrics.py:53`
+- **改动**: 校准斜率改为 statsmodels 无惩罚 GLM `y ~ logit(p)` 的系数；CITL 改为 `y ~ 1` 且 `offset=logit(p)` 的常数项；完全分离/不收敛返回 `nan`，并在校准 summary 中提示。
+- **约定**: 返回顺序保持 `(slope, intercept=CITL)`。
+
+### E3c CatBoost eval_set 与参数名
+- **文件**: `backend/app/services/ml/catboost_service.py:25`、`backend/app/services/core/models.py:110`、`frontend/src/types/index.ts:427`
+- **改动**: 删除用 `X_test` 作 `eval_set` 的二次 fit；早停如需要只能从 `X_train` 内部再切验证集。参数统一为 `learningRate`，后端兼容旧名 `learning_rate`。
+
+### E3d 决策树参数名
+- **文件**: `backend/app/services/core/models.py:63`、`frontend/src/types/index.ts:333`
+- **改动**: 工厂同时读取 `minSamplesSplit`（`min_samples_split`）与 `minSamplesLeaf`（`min_samples_leaf`）；前端注册表补 `minSamplesLeaf`。
+
+### E3e 缺失值诊断
+- **文件**: `backend/app/routers/diagnostics.py:13`、`backend/app/services/data_service.py:279`
+- **改动**: 新增 `get_raw_data()`（应用筛选、不删行）；缺失诊断改用原始数据；百分比直接用数值 `pct`，不再 `int("12.5%")`。
+
+### E3f 缺失值处理与报告一致
+- **文件**: `backend/app/services/data_service.py:293,317`、`backend/app/routers/ml.py`
+- **改动**: `get_data_for_ml` 只删除结局（及生存时间）缺失行，X 缺失保留给 Pipeline 内 `ClinicalPreprocessor` 的中位数/参照水平填补；每个 `/api/ml/*` 结果 summary 追加“删除了 n 行结局缺失；X 缺失用训练集中位数/参照水平填补”。
+
+### E3g 模型 key 静默替换与 SHAP 硬标签
+- **文件**: `backend/app/services/ml/eval_service.py`、`explain_service.py`、`backend/app/routers/ml.py`
+- **改动**: 两处改用 `canonical_key + create_model + needs_scale`，未知 key 返回 422，不再回退 LR/RF；非树模型分类的 SHAP 用 `predict_proba(X)[:,1]`。
+
+### E3h 评估参数
+- **文件**: `backend/app/services/ml/eval_service.py:50`、`frontend/src/components/Wizard/steps/Step5Eval.tsx:41`
+- **改动**: 前端始终传 `testSize=0.3`；后端读取 `evalDataset∈{train,test,both}` 选择评估集合，`both` 返回两组指标；`threshold` 用于混淆矩阵、灵敏度、特异度，未传时用训练集 Youden 界值（不在测试集选界值）。

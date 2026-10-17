@@ -87,6 +87,10 @@ class VariableInfo(BaseModel):
     range_str: str
     missing_count: int
     unique_count: int
+    # E3a：Web 计算器表单所需的水平/取值范围（只新增字段，默认值保证兼容）
+    levels: List[str] = Field(default_factory=list, description="分类/逻辑变量的水平（升序字符串）")
+    min_value: Optional[float] = Field(None, description="连续变量最小值")
+    max_value: Optional[float] = Field(None, description="连续变量最大值")
 
 class VariableListResponse(BaseModel):
     total: int

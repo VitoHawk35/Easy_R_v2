@@ -60,7 +60,10 @@ def create_model(model_type: str, params: dict | None = None, seed: int = 123):
                                   l1_ratio=float(p.get("l1Ratio", 0.5)), max_iter=5000, random_state=seed)
     if key == "DT":
         from sklearn.tree import DecisionTreeClassifier
-        return DecisionTreeClassifier(max_depth=int(p.get("maxDepth", 8)), min_samples_leaf=int(p.get("minSamplesLeaf", 1)),
+        # E3d：工厂同时读取 minSamplesSplit（分裂最小样本）与 minSamplesLeaf（叶子最小样本）
+        return DecisionTreeClassifier(max_depth=int(p.get("maxDepth", 8)),
+                                      min_samples_split=int(p.get("minSamplesSplit", 2)),
+                                      min_samples_leaf=int(p.get("minSamplesLeaf", 1)),
                                       random_state=seed)
     if key == "RF":
         from sklearn.ensemble import RandomForestClassifier
@@ -103,7 +106,8 @@ def create_model(model_type: str, params: dict | None = None, seed: int = 123):
                               num_leaves=int(p.get("numLeaves", 31)), random_state=seed, n_jobs=-1, verbosity=-1)
     if key == "CatBoost":
         from catboost import CatBoostClassifier
-        return CatBoostClassifier(iterations=int(p.get("iterations", 300)), learning_rate=float(p.get("learningRate", 0.1)),
+        return CatBoostClassifier(iterations=int(p.get("iterations", 300)),
+                                  learning_rate=float(p.get("learningRate", p.get("learning_rate", 0.1))),
                                   depth=int(p.get("depth", 6)), random_seed=seed, verbose=0, allow_writing_files=False)
     if key == "TabPFN":
         os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")

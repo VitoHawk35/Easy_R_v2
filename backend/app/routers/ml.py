@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import MLRequest, MLResult, UserPublic
 from app.services.auth_service import get_current_user
-from app.services.data_service import assert_dataset_access
+from app.services.data_service import assert_dataset_access, outcome_missing_note
 from app.services.history_service import record_history
 from app.services.ml.boruta_service import run_boruta
 from app.services.ml.lasso_service import run_lasso, run_lasso_screening, run_lasso_predict
@@ -26,6 +26,7 @@ from app.services.ml.explain_service import run_shap, run_pdp
 from app.services.ml.eval_service import run_calibration, run_dca
 from app.services.ml.validation_service import run_bootstrap
 from app.services.ml.nomogram_service import run_nomogram
+from app.services.ml.predict_service import fit_context, predict_one
 from app.services.ml.adv_diag_service import run_adv_diag
 
 router = APIRouter(prefix="/api/ml", tags=["machine-learning"])
@@ -35,11 +36,21 @@ def _run(service_func, request: MLRequest, algorithm: str, current_user: UserPub
     try:
         assert_dataset_access(request.dataset_id, current_user.id)
         result = service_func(request, fmt)
+        # E3f：所有建模结果统一注明结局缺失删除行数与 X 缺失填补约定
+        note = outcome_missing_note(
+            request.dataset_id, request.y_variable, request.x_variables,
+            request.is_survival, request.time_variable, request.filters, current_user.id)
+        result["summary"] = (str(result.get("summary", "")) + " " + note).strip()
         ml_result = MLResult(**result)
         record_history(current_user.id, algorithm, request, ml_result)
         return ml_result
     except ValueError as e:
+        # E3g：未知模型 key 一律 422，不得静默回退
+        if "不支持的模型类型" in str(e):
+            raise HTTPException(status_code=422, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -187,6 +198,23 @@ def bootstrap(request: MLRequest, current_user: UserPublic = Depends(get_current
 @router.post("/nomogram", response_model=MLResult)
 def nomogram(request: MLRequest, current_user: UserPublic = Depends(get_current_user)):
     return _run(run_nomogram, request, "nomogram", current_user, request.params.get("format", "svg"))
+
+
+@router.post("/predict")
+def predict(request: MLRequest, current_user: UserPublic = Depends(get_current_user)):
+    """E3a：原始尺度单患者预测（Web 计算器用）。
+
+    请求 = MLRequest + params.input（原始尺度的变量名 → 取值）。
+    返回 {"probability": p, "linear_predictor": lp}。
+    """
+    try:
+        assert_dataset_access(request.dataset_id, current_user.id)
+        ctx = fit_context(request)
+        return predict_one(ctx, (request.params or {}).get("input", {}))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/adv-diag", response_model=MLResult)

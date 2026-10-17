@@ -227,45 +227,103 @@ def get_variables(dataset_id: str, user_id: Optional[str] = None) -> List[Variab
     for col in df.columns:
         series = df[col]
         vtype = _infer_type(series)
+        levels = []
+        min_value = None
+        max_value = None
+        if vtype in (VariableType.CATEGORICAL, VariableType.LOGICAL):
+            levels = sorted(set(series.dropna().astype(str).unique()))[:100]
+        else:
+            numeric = _as_numeric(series).dropna()
+            if len(numeric):
+                min_value = float(numeric.min())
+                max_value = float(numeric.max())
         info = VariableInfo(
             name=col,
             type=vtype,
             range_str=_range_str(series, vtype),
             missing_count=int(series.isna().sum()),
             unique_count=int(series.nunique()),
+            levels=levels,
+            min_value=min_value,
+            max_value=max_value,
         )
         variables.append(info)
     return variables
+
+
+def _apply_filters(df: pd.DataFrame, filters: Optional[List[Dict[str, Any]]]) -> pd.DataFrame:
+    if not filters:
+        return df
+    for f in filters:
+        col = f.get("column")
+        op = f.get("op")
+        val = f.get("value")
+        if col and op and col in df.columns:
+            if op == "eq":
+                df = df[df[col] == val]
+            elif op == "ne":
+                df = df[df[col] != val]
+            elif op == "gt":
+                df = df[df[col] > val]
+            elif op == "lt":
+                df = df[df[col] < val]
+            elif op == "ge":
+                df = df[df[col] >= val]
+            elif op == "le":
+                df = df[df[col] <= val]
+            elif op == "in":
+                df = df[df[col].isin(val)]
+    return df
+
+
+def get_raw_data(dataset_id: str, columns: List[str],
+                 filters: Optional[List[Dict[str, Any]]] = None,
+                 user_id: Optional[str] = None) -> pd.DataFrame:
+    """按筛选条件取原始数据：保留缺失行，不 dropna（E3e 缺失值诊断专用）。
+
+    与 get_data_for_ml 的区别：这里不做任何缺失值删除，因此缺失计数真实反映
+    上传数据；缺失诊断不应受建模阶段的行删除影响。
+    """
+    df = get_dataset(dataset_id, user_id).copy()
+    df = _apply_filters(df, filters)
+    keep = [c for c in columns if c in df.columns]
+    return df[keep]
 
 
 def get_data_for_ml(dataset_id: str, y_variable: str, x_variables: List[str],
                     is_survival: bool = False, time_variable: Optional[str] = None,
                     filters: Optional[List[Dict[str, Any]]] = None,
                     extra_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    """建模用数据：只删除结局（及生存时间）缺失的行。
+
+    E3f 约定：X 的缺失不再整行删除，交由 Pipeline 内的 ClinicalPreprocessor
+    用训练集中位数/参照水平填补；报告 summary 由调用方注明删除行数。
+    """
     df = get_dataset(dataset_id).copy()
-    if filters:
-        for f in filters:
-            col = f.get("column")
-            op = f.get("op")
-            val = f.get("value")
-            if col and op and col in df.columns:
-                if op == "eq":
-                    df = df[df[col] == val]
-                elif op == "ne":
-                    df = df[df[col] != val]
-                elif op == "gt":
-                    df = df[df[col] > val]
-                elif op == "lt":
-                    df = df[df[col] < val]
-                elif op == "ge":
-                    df = df[df[col] >= val]
-                elif op == "le":
-                    df = df[df[col] <= val]
-                elif op == "in":
-                    df = df[df[col].isin(val)]
+    df = _apply_filters(df, filters)
     needed = [y_variable] + list(x_variables)
     if is_survival and time_variable:
         needed.append(time_variable)
     keep = needed + [c for c in (extra_cols or []) if c and c in df.columns and c not in needed]
-    df = df[keep].dropna(subset=needed)
+    # 仅结局与生存时间缺失才删行；X 缺失保留给预处理填补
+    outcome_cols = [y_variable]
+    if is_survival and time_variable:
+        outcome_cols.append(time_variable)
+    outcome_cols = [c for c in outcome_cols if c in df.columns]
+    df = df[keep].dropna(subset=outcome_cols)
     return df
+
+
+def outcome_missing_note(dataset_id: str, y_variable: str, x_variables: List[str],
+                         is_survival: bool = False, time_variable: Optional[str] = None,
+                         filters: Optional[List[Dict[str, Any]]] = None,
+                         user_id: Optional[str] = None) -> str:
+    """生成 E3f 的统一 summary 说明（删除行数 + X 缺失处理方式）。"""
+    outcome_cols = [y_variable] + ([time_variable] if is_survival and time_variable else [])
+    outcome_cols = [c for c in outcome_cols if c]
+    raw = get_raw_data(dataset_id, outcome_cols, filters, user_id)
+    n_raw = len(raw)
+    n_kept = len(raw.dropna(subset=outcome_cols)) if outcome_cols else n_raw
+    n_drop = max(n_raw - n_kept, 0)
+    return (f"数据准备：删除了 {n_drop} 行结局缺失；"
+            f"X 缺失用训练集中位数/参照水平填补。")
