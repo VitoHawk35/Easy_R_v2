@@ -217,6 +217,13 @@ def assert_dataset_access(dataset_id: str, user_id: str) -> None:
     if not meta:
         raise ValueError(f"Dataset {dataset_id} not found")
     if meta.get("global") or meta.get("owner_user_id") == user_id:
+        # E5-4: 元信息可能只来自 registry（例如服务重启后先调用 list_datasets），
+        # 此时进程内的数据缓存仍是空的。这里顺带加载数据，避免后续
+        # get_data_for_ml 不传 user_id 调用 get_dataset 时误报“数据集不存在”。
+        if dataset_id not in _datasets:
+            _load_user_dataset_from_disk(dataset_id, user_id)
+        if dataset_id not in _datasets:
+            raise ValueError(f"Dataset {dataset_id} not found")
         return
     raise ValueError("无权访问该数据集")
 

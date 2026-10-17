@@ -158,3 +158,11 @@
 - `frontend/src/services/api.ts`：新增 `downloadReportFile(filename)`，用带 `Authorization` 的 axios blob 请求 + 临时 `<a download>` 下载；`Step10Report.tsx` 下载按钮改为 `onClick`，预览 iframe 增加 `sandbox=""`。
 - 新增 `backend/tests/test_report_security.py`（密钥不可下载、env 密钥签名/轮换、密钥文件位置、报告属主校验、旧式文件名拒绝）。
 - 上线必须更换 `EASYR_AUTH_SECRET`：旧密钥可能已泄露，所有已发 token 失效属预期行为。
+## 2026-10-17 · task-E5 安全与健壮性
+
+- **CORS**：`main.py` 不再 `allow_origins=["*"]`，改为环境变量 `EASYR_CORS_ORIGINS`（逗号分隔，默认空列表，适用于生产经 nginx 同源访问）；`allow_credentials=True` 保留。
+- **上传大小**：`routers/datasets.py` 分块复制并累计字节，超过 `EASYR_MAX_UPLOAD_MB`（默认 50）返回 413；`frontend/nginx.conf` 增加 `client_max_body_size 50m;`。
+- **users.json 并发写**：`services/auth_service.py` 用 `users.json.lock` 包住注册的“读—改—写”；Linux 用 `fcntl.flock`，Windows 本地测试用 `msvcrt` 字节锁兜底；原子写临时文件名追加 pid + 线程号，避免互相覆盖。
+- **重启后数据集找不到**：`services/data_service.py` 的 `assert_dataset_access` 在确认权限后顺带把数据加载进进程内缓存，修复 `get_data_for_ml` 不传 `user_id` 时 `get_dataset` 误报“数据集不存在”。
+- **SVG 注入**：新增 `dompurify` 依赖；`ResultDisplay.tsx` 先经 `sanitizeSvg`（`USE_PROFILES: {svg, svgFilters}`）清洗再 `dangerouslySetInnerHTML`；新增 vitest 测试。
+- **部署配置**：`frontend/.env.production` 改为 `VITE_API_BASE_URL=/api`（同源经 nginx）；生产实际端口与 CORS 取值仍为 🧑‍⚖️ D2，待人工确认。
