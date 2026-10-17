@@ -80,6 +80,7 @@ def run_bootstrap(request, fmt="svg"):
         rows=[
             ["模型", key],
             ["重抽样单位", f"按 {group_var} 分组" if res["grouped"] else "按样本"],
+            ["重抽样方式", "有放回（重复抽中的单位保留重复样本）"],
             ["表观 AUC（全数据）", _fmt(res["apparent_auc"])],
             ["平均乐观度", _fmt(res["mean_optimism"])],
             ["乐观度校正 AUC", _fmt(res["corrected_auc"])],
@@ -88,7 +89,8 @@ def run_bootstrap(request, fmt="svg"):
         ],
     )
     summary = (
-        f"Bootstrap 内部验证完成（{res['n_boot']}次，{'按患者分组' if res['grouped'] else '按样本'}重抽样，每次重新训练）。"
+        f"Bootstrap 内部验证完成（{res['n_boot']}次，{'按患者分组' if res['grouped'] else '按样本'}有放回重抽样，"
+        f"重复抽中的单位保留在训练集中，每次重新训练）。"
         f"{key} 表观AUC={_fmt(res['apparent_auc'])}，校正AUC={_fmt(res['corrected_auc'])}，"
         f"OOB AUC={_fmt(res['oob_auc_mean'])}。"
     )

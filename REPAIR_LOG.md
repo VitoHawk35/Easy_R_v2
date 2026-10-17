@@ -105,3 +105,11 @@
 - 新增 `backend/app/settings.py`，通过 `EASYR_DATA_DIR` / `EASYR_DEMO_PATH` 配置数据目录与演示数据路径，默认保持原 `backend/data/` 行为。
 - `data_service.py` 与 `report_service.py` 改为从 settings 读取路径，避免测试写入仓库数据目录。
 - 新增 `backend/tests/` 冒烟测试脚手架、`backend/requirements-dev.txt`；测试覆盖 `/api/health` 与登录后的 `/api/ml/logistic`。
+
+## 2026-10-17 · task-E2 Bootstrap 有放回抽样修复
+
+- **文件**: `backend/app/services/core/validation.py`（`optimism_bootstrap`）
+- **问题**: `rng.choice(..., replace=True)` 后紧接 `np.isin(groups, chosen)` / `np.isin(arange, chosen)`，把重复抽中的单位压成一次；实际训练集退化为约 63% 的不重复子样本，`auc_boot`（表观）乐观度偏小、校正 AUC 有偏。
+- **方案**: 直接构造含重复的样本下标 `idx`——有分组时按 `chosen` 拼接各组全部样本下标（`pos_by_unit` 循环外预计算），无分组时 `idx = chosen`；`X.iloc[idx]` / `y[idx]` 训练，重复样本保留。OOB 定义为 `np.setdiff1d(arange(n), idx)`（从未被抽中的样本；分组时即整组未被抽中）。表观 AUC 改用 `Xb, yb`，`auc_test` 仍在原始全样本上计算，OOB 用 `X.iloc[oob]`。
+- 返回字典新增 `"resampling": "with_replacement"`；`validation_service.py` 表格与 summary 同步注明"有放回重抽样、重复单位保留"。
+- **测试**: 新增 `backend/tests/test_bootstrap.py`（4 项：无分组训练行数恒为 n；分组训练行数=被抽中组样本数之和且组集合一致；OOB 组与 chosen 不相交；demo+logistic+B=50 满足 `corrected_auc ≤ apparent_auc` 且 `n_boot ≥ 45`）。全量 `pytest -q`: 6 passed。
