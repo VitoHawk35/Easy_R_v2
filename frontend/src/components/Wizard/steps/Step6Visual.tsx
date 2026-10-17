@@ -1,75 +1,107 @@
 import React, { useState, useMemo } from 'react';
-import { Card, Checkbox, Button, Space, message, Tabs, Slider, InputNumber, Tag, Divider, Alert } from 'antd';
+import { Card, Checkbox, Button, Space, message, Tabs, InputNumber, Select, Tag, Alert } from 'antd';
 import { PlayCircleOutlined, CalculatorOutlined } from '@ant-design/icons';
 import { useWizard } from '@/context/WizardContext';
-import { runML } from '@/services/api';
+import { runML, predict } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
-import { buildVariableTypes } from '@/types';
+import { buildVariableTypes, type PredictionResponse } from '@/types';
+
+// E3a：只有这些线性二分类模型支持原始尺度计算器/列线图
+const CALCULATOR_MODELS = ['logistic', 'lasso', 'lasso-predict', 'elastic-net'];
+
+interface CalcField {
+  name: string;
+  kind: 'continuous' | 'categorical';
+  min?: number;
+  max?: number;
+  levels: string[];
+}
 
 const Step6Visual: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, filterResults, bestModel, modelInfo, allVariables } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, filterResults, bestModel, modelInfo, modelParams, allVariables } = state;
   const [vizOptions, setVizOptions] = useState<string[]>(['forest', 'roc', 'calibration', 'dca']);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('viz');
 
   const finalVars = filterResults.final.length > 0 ? filterResults.final : state.allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
-
-  // Web calculator state
-  const [calcValues, setCalcValues] = useState<Record<string, number>>({});
-
-  const hasCoefficients = modelInfo && modelInfo.coefficients && modelInfo.intercept !== undefined;
   const modelType = modelInfo?.model_type || bestModel;
+  const calculatorSupported = CALCULATOR_MODELS.includes(bestModel) || CALCULATOR_MODELS.includes(modelType);
 
-  // Initialize calc values from modelInfo ranges or variable ranges
-  const variableRanges = useMemo(() => {
-    const ranges: Record<string, { min: number; max: number }> = {};
-    if (modelInfo?.ranges) {
-      Object.entries(modelInfo.ranges).forEach(([k, v]: [string, any]) => {
-        ranges[k] = { min: v[0], max: v[1] };
-      });
-    } else {
-      allVariables.forEach((v) => {
-        if (finalVars.includes(v.name)) {
-          const parts = v.range_str.split(' ~ ');
-          if (parts.length === 2) {
-            const min = parseFloat(parts[0]);
-            const max = parseFloat(parts[1]);
-            if (!isNaN(min) && !isNaN(max)) {
-              ranges[v.name] = { min, max };
-            }
-          }
+  // E3a Web 计算器状态：表单值 + 后端预测结果（不在前端还原系数）
+  const [calcValues, setCalcValues] = useState<Record<string, any>>({});
+  const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  // 表单字段来自 allVariables 的变量类型/水平；分类变量用 Select，连续变量用 InputNumber
+  const calcFields = useMemo<CalcField[]>(() => {
+    return finalVars.map((name) => {
+      const v = allVariables.find((item) => item.name === name);
+      if (!v) return { name, kind: 'continuous', min: 0, max: 1, levels: [] };
+      if (v.type === 'categorical' || v.type === 'logical') {
+        return { name, kind: 'categorical', levels: v.levels || [] };
+      }
+      let min = v.min_value ?? undefined;
+      let max = v.max_value ?? undefined;
+      if (min === undefined || max === undefined) {
+        // 兼容旧后端：range_str 形如 "3.22-74.00连续"
+        const m = v.range_str.match(/(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)/);
+        if (m) {
+          min = parseFloat(m[1]);
+          max = parseFloat(m[2]);
+        }
+      }
+      return { name, kind: 'continuous', min: min ?? 0, max: max ?? 1, levels: [] };
+    });
+  }, [finalVars, allVariables]);
+
+  // 初始化默认值（连续变量取范围中点，分类变量取第一个水平）
+  React.useEffect(() => {
+    setCalcValues((prev) => {
+      const next = { ...prev };
+      calcFields.forEach((f) => {
+        if (next[f.name] !== undefined) return;
+        if (f.kind === 'categorical') {
+          next[f.name] = f.levels[0] ?? '';
+        } else {
+          next[f.name] = parseFloat((((f.min ?? 0) + (f.max ?? 1)) / 2).toFixed(4));
         }
       });
-    }
-    return ranges;
-  }, [modelInfo, allVariables, finalVars]);
-
-  // Initialize default slider values once
-  React.useEffect(() => {
-    if (Object.keys(calcValues).length === 0 && Object.keys(variableRanges).length > 0) {
-      const defaults: Record<string, number> = {};
-      Object.entries(variableRanges).forEach(([k, v]) => {
-        defaults[k] = parseFloat(((v.min + v.max) / 2).toFixed(2));
-      });
-      setCalcValues(defaults);
-    }
-  }, [variableRanges]);
-
-  const calculatedProbability = useMemo(() => {
-    if (!hasCoefficients) return null;
-    const coeffs = modelInfo.coefficients as Record<string, number>;
-    let lp = modelInfo.intercept as number;
-    Object.entries(coeffs).forEach(([varName, coef]) => {
-      const val = calcValues[varName] || 0;
-      lp += coef * val;
+      return next;
     });
-    if (modelType === 'logistic') {
-      const prob = 1 / (1 + Math.exp(-lp));
-      return { lp, prob };
+  }, [calcFields]);
+
+  const runCalculator = async () => {
+    if (!datasetId || !yVariable || !bestModel) {
+      message.error('请先完成模型构建步骤');
+      return;
     }
-    return { lp, prob: null };
-  }, [calcValues, modelInfo, hasCoefficients, modelType]);
+    setCalcLoading(true);
+    try {
+      const modelP = modelParams[bestModel] || modelParams[modelType] || {};
+      const res = await predict(buildRequest({
+        dataset_id: datasetId,
+        y_variable: yVariable,
+        is_survival: isSurvival,
+        time_variable: timeVariable || undefined,
+        x_variables: finalVars,
+        filters: [],
+        params: {
+          ...modelP,
+          modelType: bestModel || modelType,
+          input: calcValues,
+          format: 'svg',
+        },
+        seed: modelP.seed || 123,
+        variable_types: buildVariableTypes(allVariables),
+      } as any));
+      setPrediction(res);
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '预测失败');
+    } finally {
+      setCalcLoading(false);
+    }
+  };
 
   const runVisual = async () => {
     if (!datasetId || !yVariable || !bestModel) {
@@ -91,14 +123,15 @@ const Step6Visual: React.FC = () => {
       };
 
       if (vizOptions.includes('nomogram')) {
+        const modelP = modelParams[bestModel] || {};
         const res = await runML('nomogram', buildRequest({
           ...basePayload,
-          params: { modelType: bestModel, testSize: 0.3, format: 'svg' }
+          params: { ...modelP, modelType: bestModel, modelParams: modelParams, testSize: 0.3, format: 'svg' }
         } as any));
         allResults.charts.push(...res.charts);
         allResults.tables.push(...res.tables);
         if (res.model_info) {
-          dispatch({ type: 'SET_MODEL_INFO', payload: { ...modelInfo, ...res.model_info } });
+          dispatch({ type: 'SET_MODEL_INFO', payload: { ...(modelInfo || {}), ...res.model_info } });
         }
       }
       if (vizOptions.includes('forest')) {
@@ -202,52 +235,52 @@ const Step6Visual: React.FC = () => {
       children: (
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Card title="基于模型的在线预测计算器" size="small">
-            {!hasCoefficients ? (
+            {!calculatorSupported ? (
               <Alert
                 message="Web计算器暂不可用"
-                description="当前模型类型不支持在线预测计算器（需要线性系数模型，如Logistic回归、LASSO、弹性网络）。请在模型构建步骤选择支持系数的模型，或先生成Nomogram以获取系数。"
+                description="当前模型类型不支持在线预测计算器：仅支持 Logistic回归、LASSO、弹性网络。请重新训练模型或改用列线图支持的类型。"
                 type="warning"
                 showIcon
               />
             ) : (
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div style={{ marginBottom: 8 }}>
-                  <Tag color="green">模型: {bestModel}</Tag>
-                  <Tag color="blue">截距: {(modelInfo.intercept as number).toFixed(4)}</Tag>
+                  <Tag color="green">模型: {bestModel || modelType}</Tag>
+                  <Tag color="blue">原始尺度预测（后端 /api/ml/predict）</Tag>
                 </div>
-                {Object.entries(variableRanges).map(([varName, range]) => {
-                  const val = calcValues[varName] ?? (range.min + range.max) / 2;
-                  const coef = (modelInfo.coefficients as Record<string, number>)[varName] || 0;
-                  return (
-                    <div key={varName} style={{ marginBottom: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <strong>{varName}</strong>
-                        <span style={{ color: '#666' }}>
-                          β={coef.toFixed(3)} | 值: {val.toFixed(2)}
-                        </span>
-                      </div>
-                      <Slider
-                        min={range.min}
-                        max={range.max}
-                        step={(range.max - range.min) / 100}
-                        value={val}
-                        onChange={(v) => setCalcValues((prev) => ({ ...prev, [varName]: v }))}
-                        tooltip={{ formatter: (v) => String(v) }}
+                {calcFields.map((f) => (
+                  <div key={f.name} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <strong style={{ width: 140 }}>{f.name}</strong>
+                    {f.kind === 'categorical' && f.levels.length > 0 ? (
+                      <Select
+                        style={{ width: 220 }}
+                        value={calcValues[f.name]}
+                        options={f.levels.map((lv) => ({ label: lv, value: lv }))}
+                        onChange={(v) => setCalcValues((prev) => ({ ...prev, [f.name]: v }))}
                       />
-                    </div>
-                  );
-                })}
-                <Divider />
-                {calculatedProbability && (
-                  <div style={{ textAlign: 'center', padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f' }}>
+                    ) : (
+                      <InputNumber
+                        style={{ width: 220 }}
+                        min={f.min}
+                        max={f.max}
+                        step={(f.max !== undefined && f.min !== undefined && f.max > f.min) ? (f.max - f.min) / 100 : 0.01}
+                        value={Number(calcValues[f.name])}
+                        onChange={(v) => setCalcValues((prev) => ({ ...prev, [f.name]: v }))}
+                      />
+                    )}
+                  </div>
+                ))}
+                <Button type="primary" icon={<CalculatorOutlined />} loading={calcLoading} onClick={runCalculator}>
+                  计算
+                </Button>
+                {prediction && (
+                  <div style={{ textAlign: 'center', padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f', marginTop: 12 }}>
                     <div style={{ fontSize: 14, color: '#666' }}>预测概率</div>
                     <div style={{ fontSize: 36, fontWeight: 'bold', color: '#2f855a' }}>
-                      {calculatedProbability.prob !== null
-                        ? `${(calculatedProbability.prob * 100).toFixed(2)}%`
-                        : calculatedProbability.lp.toFixed(3)}
+                      {(prediction.probability * 100).toFixed(2)}%
                     </div>
                     <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                      线性预测值 (LP): {calculatedProbability.lp.toFixed(4)}
+                      线性预测值 (LP): {prediction.linear_predictor.toFixed(4)}
                     </div>
                   </div>
                 )}

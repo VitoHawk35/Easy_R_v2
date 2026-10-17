@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { DatasetInfo, VariableInfo, MLRequest, MLResult, DataTransformConfig, DataTransformResponse, VariableType, AuthRequest, AuthResponse, User, HistoryListItem, HistoryDetail } from '@/types';
+import type { DatasetInfo, VariableInfo, MLRequest, MLResult, DataTransformConfig, DataTransformResponse, VariableType, AuthRequest, AuthResponse, User, HistoryListItem, HistoryDetail, PredictionResponse } from '@/types';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -36,6 +36,11 @@ export async function getVariables(datasetId: string): Promise<{ total: number; 
 
 export async function runML(algorithm: string, request: MLRequest): Promise<MLResult> {
   const res = await api.post(`/ml/${algorithm}`, request);
+  return res.data;
+}
+
+export async function predict(request: MLRequest): Promise<PredictionResponse> {
+  const res = await api.post('/ml/predict', request);
   return res.data;
 }
 

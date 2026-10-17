@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import MLRequest, MLResult, UserPublic
 from app.services.auth_service import get_current_user
-from app.services.data_service import get_data_for_ml, assert_dataset_access
+from app.services.data_service import get_data_for_ml, get_raw_data, assert_dataset_access
 from app.services.ml.utils import prepare_xy, encode_figure, ChartData, TableData
 import pandas as pd
 import numpy as np
@@ -13,16 +13,21 @@ router = APIRouter(prefix="/api/diagnostics", tags=["diagnostics"])
 def missing_values(request: MLRequest, current_user: UserPublic = Depends(get_current_user)):
     try:
         assert_dataset_access(request.dataset_id, current_user.id)
-        df = get_data_for_ml(request.dataset_id, request.y_variable, request.x_variables,
-                             request.is_survival, request.time_variable, request.filters)
+        # E3e：缺失诊断读原始数据（应用筛选、不删行），不再走 get_data_for_ml 的 dropna
+        columns = [request.y_variable] + list(request.x_variables)
+        if request.is_survival and request.time_variable:
+            columns.append(request.time_variable)
+        columns = list(dict.fromkeys(columns))
+        df = get_raw_data(request.dataset_id, columns, request.filters, current_user.id)
         if len(df) == 0:
             raise ValueError("Filtered data is empty")
 
         missing_data = []
+        pct_by_var = {}
         for col in df.columns:
             missing = int(df[col].isna().sum())
             total = len(df)
-            pct = round(missing / total * 100, 2) if total > 0 else 0
+            pct = round(missing / total * 100, 2) if total > 0 else 0.0
             uniq = df[col].dropna().unique()
             if len(uniq) == 2 and set(uniq).issubset({0, 1, True, False}):
                 vtype = "逻辑"
@@ -36,12 +41,14 @@ def missing_values(request: MLRequest, current_user: UserPublic = Depends(get_cu
                 "MissingPercent": f"{pct}%",
                 "Type": vtype
             })
+            pct_by_var[col] = pct
         missing_df = pd.DataFrame(missing_data).sort_values("MissingCount", ascending=False)
 
-        # Chart
+        # Chart：直接用数值 pct，避免 int("12.5%") 抛异常
         fig, ax = plt.subplots(figsize=(10, max(4, len(missing_df) * 0.4)))
-        colors = ["#e74c3c" if int(str(v).replace("%", "")) > 20 else "#3498db" for v in missing_df["MissingPercent"]]
-        ax.barh(missing_df["Variable"][::-1], [int(str(v).replace("%", "")) for v in missing_df["MissingPercent"]][::-1], color=colors[::-1])
+        pct_series = [pct_by_var[v] for v in missing_df["Variable"]]
+        colors = ["#e74c3c" if v > 20 else "#3498db" for v in pct_series]
+        ax.barh(missing_df["Variable"][::-1], pct_series[::-1], color=colors[::-1])
         ax.set_xlabel("缺失比例 (%)")
         ax.set_title("缺失值诊断")
         ax.axvline(20, color='r', linestyle='--', label='20%阈值')

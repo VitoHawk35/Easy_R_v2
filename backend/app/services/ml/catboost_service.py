@@ -22,7 +22,8 @@ def run_catboost(request, fmt="svg"):
     seed = request.params.get("seed", request.seed)
     test_size = request.params.get("testSize", 0.3)
     iterations = int(request.params.get("iterations", 500))
-    learning_rate = float(request.params.get("learning_rate", 0.1))
+    # E3c：前端注册表统一用 learningRate；兼容旧请求里的 learning_rate
+    learning_rate = float(request.params.get("learningRate", request.params.get("learning_rate", 0.1)))
     depth = int(request.params.get("depth", 6))
     is_classifier = len(np.unique(y)) <= 10 and y.dtype != float
     if not HAS_CATBOOST:
@@ -45,11 +46,8 @@ def run_catboost(request, fmt="svg"):
         stratify=is_classifier, variable_types=request.variable_types)
     feature_names = list(pipe.named_steps["prep"].get_feature_names_out())
     fitted_model = pipe.named_steps["clf"]
-    if HAS_CATBOOST:
-        # 保留旧代码 eval_set 行为：用训练集 fit 好的预处理器显式变换训练/测试集后重训
-        prep = pipe.named_steps["prep"]
-        fitted_model.fit(prep.transform(X_train), y_train,
-                         eval_set=(prep.transform(X_test), y_test), verbose=False)
+    # E3c：Pipeline 已在 :43-45 完成 fit，不再用测试集做 eval_set 重训。
+    # 如需早停，只能从 X_train 内部再切验证集，绝不能使用 X_test。
     y_pred = pipe.predict(X_test)
     if is_classifier:
         y_prob = pipe.predict_proba(X_test)

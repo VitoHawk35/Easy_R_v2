@@ -6,10 +6,12 @@
 """
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 from scipy import stats
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     average_precision_score,
     brier_score_loss,
@@ -49,11 +51,34 @@ def hosmer_lemeshow(y, p, n_bins=10):
 
 
 def calibration_slope_intercept(y, p):
-    p = np.clip(p, 1e-6, 1 - 1e-6)
-    x = np.log(p / (1 - p)).reshape(-1, 1)
+    """校准斜率与 CITL（校准截距）。
+
+    约定（E3b）：
+    - 斜率：无惩罚 GLM ``y ~ logit(p)`` 中 logit(p) 的系数（statsmodels Binomial，
+      不再使用 sklearn LogisticRegression 默认 C=1 的 L2 惩罚，避免斜率被压低）；
+    - CITL：``y ~ 1``，以 logit(p) 为 offset 的 GLM 常数项；
+    - 完全分离或迭代不收敛时返回 ``(nan, nan)``，由调用方在 summary 中说明。
+    返回值顺序保持不变：(slope, intercept=CITL)。
+    """
+    y = np.asarray(y, dtype=float)
+    p = np.clip(np.asarray(p, dtype=float), 1e-6, 1 - 1e-6)
+    logit_p = np.log(p / (1 - p))
     try:
-        m = LogisticRegression(max_iter=1000).fit(x, y)
-        return float(m.coef_[0][0]), float(m.intercept_[0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            slope_fit = sm.GLM(y, sm.add_constant(logit_p),
+                               family=sm.families.Binomial()).fit()
+            citl_fit = sm.GLM(y, np.ones_like(logit_p),
+                              family=sm.families.Binomial(),
+                              offset=logit_p).fit()
+        if not slope_fit.converged or not citl_fit.converged:
+            return np.nan, np.nan
+        slope = float(slope_fit.params[1])
+        citl = float(citl_fit.params[0])
+        # 完全分离时 statsmodels 会给出量级异常的系数（而非抛错）
+        if not np.isfinite(slope) or not np.isfinite(citl) or abs(slope) > 1e4 or abs(citl) > 1e4:
+            return np.nan, np.nan
+        return slope, citl
     except Exception:
         return np.nan, np.nan
 
