@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 
 from app.models.schemas import DatasetInfo, VariableInfo, VariableType
+from app.settings import DATA_DIR, DEMO_DATA_PATH
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
 USERS_DIR = os.path.join(DATA_DIR, "users")
 
 _datasets: Dict[str, pd.DataFrame] = {}
@@ -100,16 +100,15 @@ def _range_str(series: pd.Series, vtype: VariableType) -> str:
 def load_demo_data():
     if "demo" in _datasets:
         return
-    demo_path = os.path.join(DATA_DIR, "demo.csv")
-    if os.path.exists(demo_path):
-        df = pd.read_csv(demo_path)
+    if os.path.exists(DEMO_DATA_PATH):
+        df = pd.read_csv(DEMO_DATA_PATH)
         _datasets["demo"] = df
         _dataset_meta["demo"] = {
             "id": "demo",
             "name": "demo.csv",
             "rows": len(df),
             "cols": len(df.columns),
-            "path": demo_path,
+            "path": DEMO_DATA_PATH,
             "owner_user_id": None,
             "global": True,
         }
