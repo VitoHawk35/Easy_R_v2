@@ -89,6 +89,22 @@ export async function generateReport(reportData: any, format: 'pdf' | 'word' = '
   return res.data;
 }
 
+export async function downloadReportFile(filename: string): Promise<void> {
+  const res = await api.get(`/report/download/${encodeURIComponent(filename)}`, {
+    responseType: 'blob',
+  });
+  const contentType = (res.headers['content-type'] as string) || 'application/octet-stream';
+  const blob = new Blob([res.data], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function login(request: AuthRequest): Promise<AuthResponse> {
   const res = await api.post('/auth/login', request);
   return res.data;

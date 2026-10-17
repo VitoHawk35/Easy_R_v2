@@ -149,3 +149,12 @@
 ### E3h 评估参数
 - **文件**: `backend/app/services/ml/eval_service.py:50`、`frontend/src/components/Wizard/steps/Step5Eval.tsx:41`
 - **改动**: 前端始终传 `testSize=0.3`；后端读取 `evalDataset∈{train,test,both}` 选择评估集合，`both` 返回两组指标；`threshold` 用于混淆矩阵、灵敏度、特异度，未传时用训练集 Youden 界值（不在测试集选界值）。
+
+## 2026-10-17 · task-E1 报告下载安全（P0）
+
+- `backend/app/services/auth_service.py`：签名密钥优先读取环境变量 `EASYR_AUTH_SECRET`；未设置时读取 `EASYR_SECRET_FILE`（默认 `DATA_DIR/../secrets/auth_secret.txt`，已移出 `DATA_DIR`），不存在则生成并 `chmod 600`。`DATA_DIR/auth_secret.txt` 不再创建或读取。
+- `backend/app/services/report_service.py`：`generate_word_report` / `generate_pdf_report` 增加 `user_id` 参数，报告输出到 `DATA_DIR/users/{user_id}/reports/report_{yyyymmddHHMMSS}_{secrets.token_urlsafe(12)}.{docx|pdf}`。
+- `backend/app/routers/report.py`：生成接口传入 `current_user.id`；下载接口先按 `^report_[0-9]{14}_[A-Za-z0-9_-]{16}\.(docx|pdf)$` 校验文件名，再用 `os.path.realpath` 限定在 `DATA_DIR/users/{current_user.id}/reports/` 下，否则一律 404。
+- `frontend/src/services/api.ts`：新增 `downloadReportFile(filename)`，用带 `Authorization` 的 axios blob 请求 + 临时 `<a download>` 下载；`Step10Report.tsx` 下载按钮改为 `onClick`，预览 iframe 增加 `sandbox=""`。
+- 新增 `backend/tests/test_report_security.py`（密钥不可下载、env 密钥签名/轮换、密钥文件位置、报告属主校验、旧式文件名拒绝）。
+- 上线必须更换 `EASYR_AUTH_SECRET`：旧密钥可能已泄露，所有已发 token 失效属预期行为。
