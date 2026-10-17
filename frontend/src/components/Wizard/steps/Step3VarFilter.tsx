@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { Card, Checkbox, InputNumber, Select, Button, Space, Tag, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, featureCandidates } from '@/context/WizardContext';
 import { runML } from '@/services/api';
 import { buildVariableTypes, type MLResult } from '@/types';
 
 const Step3VarFilter: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, allVariables, filterConfig, removedVars } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, allVariables, filterConfig, removedVars, filterResults } = state;
   const [loading, setLoading] = useState(false);
-  const [localFinalVars, setLocalFinalVars] = useState<string[]>([]);
 
-  const availableVars = allVariables
-    .map((v) => v.name)
-    .filter((n) => n !== yVariable && n !== timeVariable && !removedVars.includes(n));
+  // E4d：统一特征候选，排除 Y / 时间 / 分组 / ID 变量，再去掉诊断阶段已移除的变量
+  const availableVars = featureCandidates(state).filter((n) => !removedVars.includes(n));
 
   const mapToAvailableVars = (vars: string[]) => Array.from(new Set(vars
     .map((name) => {
@@ -100,7 +98,15 @@ const Step3VarFilter: React.FC = () => {
         }));
         const impTable = res.tables.find((t) => t.title.includes('重要性') || t.title.includes('Importance'));
         if (impTable) {
-          results.rf = mapToAvailableVars(impTable.rows.filter((r) => r[1] > 0).map((r) => String(r[0])));
+          // E4d：按重要性降序取前 K 个（默认 10，可配置），不再用“重要性 > 0”几乎全选
+          const topK = Math.max(1, filterConfig.rfTopK || 10);
+          const ranked = impTable.rows
+            .map((row) => ({ name: String(row[0]), importance: Number(row[1]) }))
+            .filter((row) => Number.isFinite(row.importance))
+            .sort((a, b) => b.importance - a.importance)
+            .slice(0, topK)
+            .map((row) => row.name);
+          results.rf = mapToAvailableVars(ranked);
         } else {
           results.rf = availableVars;
           message.warning('随机森林重要性解析失败，已回退到全部可用变量');
@@ -146,7 +152,6 @@ const Step3VarFilter: React.FC = () => {
         : availableVars;
 
       dispatch({ type: 'SET_FILTER_RESULTS', payload: results });
-      setLocalFinalVars(results.final);
       markComplete(2);
       message.success('变量筛选完成');
     } catch (e: any) {
@@ -155,8 +160,6 @@ const Step3VarFilter: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const { filterResults } = state;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -203,6 +206,19 @@ const Step3VarFilter: React.FC = () => {
           >
             随机森林
           </Checkbox>
+          {filterConfig.useRF && (
+            <div style={{ marginLeft: 24, marginTop: 8 }}>
+              <div style={{ marginBottom: 6, color: '#666' }}>
+                入选用“按重要性降序取前 K 个”（默认 10），不再按“重要性 &gt; 0”几乎全选
+              </div>
+              <label style={{ marginRight: 8 }}>保留变量数 K</label>
+              <InputNumber
+                min={1} max={1000} step={1}
+                value={filterConfig.rfTopK}
+                onChange={(v) => dispatch({ type: 'SET_FILTER_CONFIG', payload: { rfTopK: v || 10 } })}
+              />
+            </div>
+          )}
 
           <Checkbox
             checked={filterConfig.useBoruta}
@@ -287,12 +303,11 @@ const Step3VarFilter: React.FC = () => {
               </div>
             )}
             <div style={{ marginTop: 12, padding: 12, background: '#f6ffed', borderRadius: 4 }}>
-              <strong>最终筛选变量 ({localFinalVars.length}个):</strong>
+              <strong>最终筛选变量 ({filterResults.final.length}个):</strong>
               <Space size={[0, 4]} wrap style={{ marginTop: 4 }}>
-                {localFinalVars.map((v) => (
+                {filterResults.final.map((v) => (
                   <Tag key={v} closable onClose={() => {
-                    const next = localFinalVars.filter((x) => x !== v);
-                    setLocalFinalVars(next);
+                    const next = filterResults.final.filter((x) => x !== v);
                     dispatch({ type: 'SET_FILTER_RESULTS', payload: { ...filterResults, final: next } });
                   }}>
                     {v}

@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { Card, Checkbox, InputNumber, Upload, Button, Space, message } from 'antd';
 import { PlayCircleOutlined, UploadOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, effectiveModelFeatures } from '@/context/WizardContext';
 import { runML, runExternalValidation } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
 import { buildVariableTypes } from '@/types';
 
 const Step9Validate: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, groupVariable, filterResults, bestModel, modelParams } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, groupVariable, bestModel, modelParams } = state;
   const [useBootstrap, setUseBootstrap] = useState(true);
   const [useExternal, setUseExternal] = useState(false);
   const [nBootstrap, setNBootstrap] = useState(200);
   const [externalFile, setExternalFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const finalVars = filterResults.final.length > 0 ? filterResults.final : state.allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
+  // E4c：使用 Step4 实际建模的特征集（含强制纳入变量）与超参数
+  const finalVars = effectiveModelFeatures(state);
 
   const runValidation = async () => {
     if (!datasetId || !yVariable) {
@@ -24,6 +25,7 @@ const Step9Validate: React.FC = () => {
     }
     setLoading(true);
     const allResults: any = { charts: [], tables: [], summary: '', success: true };
+    let didRunAny = false;
     try {
       if (useBootstrap) {
         const res = await runML('bootstrap', buildRequest({
@@ -35,6 +37,7 @@ const Step9Validate: React.FC = () => {
           filters: [],
           params: {
             modelType: bestModel || 'logistic',
+            model_params: { [bestModel || 'logistic']: modelParams[bestModel || 'logistic'] || {} },
             nBootstrap,
             testSize: 0.3,
             format: 'svg',
@@ -46,6 +49,7 @@ const Step9Validate: React.FC = () => {
         allResults.charts.push(...res.charts);
         allResults.tables.push(...res.tables);
         allResults.summary += res.summary + ' ';
+        didRunAny = true;
       }
 
       if (useExternal && externalFile && bestModel) {
@@ -54,6 +58,17 @@ const Step9Validate: React.FC = () => {
         allResults.charts.push(...res.charts);
         allResults.tables.push(...res.tables);
         allResults.summary += res.summary + ' ';
+        didRunAny = true;
+      }
+
+      // E4f：什么都没跑时不写入结果、不标记完成
+      if (!didRunAny) {
+        message.warning(
+          useExternal && !externalFile
+            ? '已勾选外部验证但尚未上传验证文件，未运行任何验证'
+            : '请至少选择并运行一项验证',
+        );
+        return;
       }
 
       dispatch({ type: 'SET_VALIDATION_RESULTS', payload: allResults });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Form, Select, Radio, Button, Space, Tag, Checkbox, InputNumber, Divider, Alert, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, featureCandidates } from '@/context/WizardContext';
 import { runML } from '@/services/api';
 import { ALGORITHMS, buildVariableTypes } from '@/types';
 import { renderAlgorithmParam } from '../utils/renderAlgorithmParam';
@@ -22,9 +22,13 @@ const Step4ModelBuild: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
-  const finalVars = filterResults.final.length > 0 ? filterResults.final : allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
-  const availableVars = allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
-  const mergedVars = Array.from(new Set([...finalVars, ...forcedIncludeVars]));
+  // E4d：统一特征候选（排除 Y / 时间 / 分组 / ID 变量）
+  const candidates = featureCandidates(state);
+  const finalVars = (filterResults.final.length > 0 ? filterResults.final : candidates)
+    .filter((name) => candidates.includes(name));
+  const availableVars = candidates;
+  const forcedVars = forcedIncludeVars.filter((name) => candidates.includes(name));
+  const mergedVars = Array.from(new Set([...finalVars, ...forcedVars]));
   const currentConfig = modelAlgorithms.find((a) => a.key === selectedModel);
 
   const handleModelChange = (val: string) => {
@@ -65,6 +69,8 @@ const Step4ModelBuild: React.FC = () => {
           variable_types: buildVariableTypes(state.allVariables),
         }));
         dispatch({ type: 'SET_BUILD_RESULT', payload: res });
+        // E4c：记录本次建模实际使用的特征集（含强制纳入变量），供第 5–9 步复用
+        dispatch({ type: 'SET_MODEL_FEATURES', payload: mergedVars });
         dispatch({ type: 'SET_BEST_MODEL', payload: selectedModel });
         dispatch({ type: 'SET_MODEL_PARAMS', payload: { [selectedModel]: params } });
         if (res.model_info) {
@@ -104,6 +110,7 @@ const Step4ModelBuild: React.FC = () => {
           variable_types: buildVariableTypes(state.allVariables),
         }));
         dispatch({ type: 'SET_BUILD_RESULT', payload: res });
+        dispatch({ type: 'SET_MODEL_FEATURES', payload: mergedVars });
         const bestModelFromSummary = res.summary?.match(/最佳(?:AUC)?模型[:：]\s*([A-Za-z]+)/)?.[1] || '';
         const reverseMap: Record<string, string> = {
           LR: 'logistic', DT: 'decision-tree', RF: 'random-forest',

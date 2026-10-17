@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, Checkbox, Button, Space, message, Tabs, InputNumber, Select, Tag, Alert } from 'antd';
 import { PlayCircleOutlined, CalculatorOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, effectiveModelFeatures } from '@/context/WizardContext';
 import { runML, predict } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
 import { buildVariableTypes, type PredictionResponse } from '@/types';
@@ -19,12 +19,14 @@ interface CalcField {
 
 const Step6Visual: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, filterResults, bestModel, modelInfo, modelParams, allVariables } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, bestModel, modelInfo, modelParams, allVariables } = state;
   const [vizOptions, setVizOptions] = useState<string[]>(['forest', 'roc', 'calibration', 'dca']);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('viz');
 
-  const finalVars = filterResults.final.length > 0 ? filterResults.final : state.allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
+  // E4c：使用 Step4 实际建模的特征集（含强制纳入变量）与超参数
+  const finalVars = effectiveModelFeatures(state);
+  const modelParamsPayload = { [bestModel]: modelParams[bestModel] || {} };
   const modelType = modelInfo?.model_type || bestModel;
   const calculatorSupported = CALCULATOR_MODELS.includes(bestModel) || CALCULATOR_MODELS.includes(modelType);
 
@@ -126,7 +128,7 @@ const Step6Visual: React.FC = () => {
         const modelP = modelParams[bestModel] || {};
         const res = await runML('nomogram', buildRequest({
           ...basePayload,
-          params: { ...modelP, modelType: bestModel, modelParams: modelParams, testSize: 0.3, format: 'svg' }
+          params: { ...modelP, modelType: bestModel, modelParams: modelParams, model_params: modelParamsPayload, testSize: 0.3, format: 'svg' }
         } as any));
         allResults.charts.push(...res.charts);
         allResults.tables.push(...res.tables);
@@ -163,11 +165,11 @@ const Step6Visual: React.FC = () => {
         }
       }
       if (vizOptions.includes('calibration')) {
-        const res = await runML('calibration', buildRequest({ ...basePayload, params: { modelType: bestModel, testSize: 0.3, format: 'svg' } } as any));
+        const res = await runML('calibration', buildRequest({ ...basePayload, params: { modelType: bestModel, model_params: modelParamsPayload, testSize: 0.3, format: 'svg' } } as any));
         allResults.charts.push(...res.charts);
       }
       if (vizOptions.includes('dca')) {
-        const res = await runML('dca', buildRequest({ ...basePayload, params: { modelType: bestModel, testSize: 0.3, format: 'svg' } } as any));
+        const res = await runML('dca', buildRequest({ ...basePayload, params: { modelType: bestModel, model_params: modelParamsPayload, testSize: 0.3, format: 'svg' } } as any));
         allResults.charts.push(...res.charts);
       }
 

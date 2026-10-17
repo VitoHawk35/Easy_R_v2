@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User } from '@/types';
 import { getMe, login as apiLogin, register as apiRegister } from '@/services/api';
+import { WIZARD_STORAGE_KEY } from '@/context/WizardContext';
 
 interface AuthState {
   user: User | null;
@@ -43,6 +44,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     localStorage.removeItem('easyr_token');
+    // 主动退出登录时清空向导状态；刷新导致的强制重登不清空（D8 已决，保留向导）
+    try {
+      sessionStorage.removeItem(WIZARD_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
     setUser(null);
   }, []);
 

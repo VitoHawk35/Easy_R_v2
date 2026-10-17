@@ -89,5 +89,9 @@ def run_vif(request, fmt="svg"):
             removed.append(X_new.columns[remove_idx])
             X_new = X_new.drop(columns=[X_new.columns[remove_idx]])
         result["removed_vars"] = removed
+        # 同时放入 model_info，前端可统一从 model_info.removed_vars 读取（E4e）
+        result["model_info"] = {"removed_vars": removed}
         result["summary"] += f" 自动移除了{len(removed)}个变量: {', '.join(removed)}。"
+    else:
+        result["removed_vars"] = []
     return result

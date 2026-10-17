@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Button, Space, Divider } from 'antd';
-import { LeftOutlined, RightOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { WizardProvider, useWizard } from '@/context/WizardContext';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { useWizard } from '@/context/WizardContext';
 import StepNavigator from './StepNavigator';
 import Step1DataPrep from './steps/Step1DataPrep';
 import Step2Diagnostics from './steps/Step2Diagnostics';
@@ -47,26 +47,18 @@ interface WizardInnerProps {
   datasets: DatasetInfo[];
   onDatasetChange: (id: string) => void;
   variables: VariableInfo[];
-  restoreSnapshot?: any;
 }
 
-const WizardInner: React.FC<WizardInnerProps> = ({ datasets, onDatasetChange, variables, restoreSnapshot }) => {
+const WizardInner: React.FC<WizardInnerProps> = ({ datasets, onDatasetChange, variables }) => {
   const { state, dispatch, goToStep } = useWizard();
   const { currentStep, completedSteps } = state;
-  const restoredRef = useRef(false);
 
   useEffect(() => {
-    if (restoreSnapshot && !restoredRef.current) {
-      restoredRef.current = true;
-      dispatch({ type: 'RESTORE_SNAPSHOT', payload: restoreSnapshot });
-    }
-  }, [restoreSnapshot, dispatch]);
-
-  useEffect(() => {
-    if (!restoreSnapshot) {
+    // 变量列表尚未加载完成时不要覆盖从 sessionStorage 恢复的 allVariables
+    if (variables.length > 0) {
       dispatch({ type: 'SET_ALL_VARIABLES', payload: variables });
     }
-  }, [variables, restoreSnapshot, dispatch]);
+  }, [variables, dispatch]);
 
   // 使用 any 类型断言，绕过严苛的 props 检查
   const CurrentStepComponent = stepComponents[currentStep] as any;
@@ -120,15 +112,11 @@ interface WizardContainerProps {
   datasets: DatasetInfo[];
   onDatasetChange: (id: string) => void;
   variables: VariableInfo[];
-  restoreSnapshot?: any;
 }
 
-const WizardContainer: React.FC<WizardContainerProps> = ({ restoreSnapshot, ...props }) => {
-  return (
-    <WizardProvider>
-      <WizardInner {...props} restoreSnapshot={restoreSnapshot} />
-    </WizardProvider>
-  );
+/** WizardProvider 已提升到 App 层，这里只负责渲染向导内部（E4a）。 */
+const WizardContainer: React.FC<WizardContainerProps> = (props) => {
+  return <WizardInner {...props} />;
 };
 
 export default WizardContainer;

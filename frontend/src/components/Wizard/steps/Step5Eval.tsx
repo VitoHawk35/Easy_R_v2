@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { Card, Checkbox, Radio, Slider, Button, Space, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, effectiveModelFeatures } from '@/context/WizardContext';
 import { runML } from '@/services/api';
 import ResultDisplay from '@/components/ResultDisplay/ResultDisplay';
 import { buildVariableTypes } from '@/types';
 
 const Step5Eval: React.FC = () => {
   const { state, dispatch, markComplete, buildRequest } = useWizard();
-  const { datasetId, yVariable, isSurvival, timeVariable, filterResults, bestModel, modelParams } = state;
+  const { datasetId, yVariable, isSurvival, timeVariable, bestModel, modelParams } = state;
   const [evalDataset, setEvalDataset] = useState<'test' | 'train' | 'both'>('test');
   const [metrics, setMetrics] = useState<string[]>(['roc', 'confusion', 'calibration', 'dca']);
   const [threshold, setThreshold] = useState(0.5);
   const [loading, setLoading] = useState(false);
 
-  const finalVars = filterResults.final.length > 0 ? filterResults.final : state.allVariables.map((v) => v.name).filter((n) => n !== yVariable && n !== timeVariable);
+  // E4c：使用 Step4 实际建模的特征集（含强制纳入变量）与超参数
+  const finalVars = effectiveModelFeatures(state);
 
   const runEval = async () => {
     if (!datasetId || !yVariable || !bestModel) {

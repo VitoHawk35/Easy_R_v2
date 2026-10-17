@@ -17,7 +17,7 @@ const stepItems = [
 
 const StepNavigator: React.FC = () => {
   const { state, goToStep } = useWizard();
-  const { currentStep, completedSteps } = state;
+  const { currentStep, completedSteps, staleSteps } = state;
 
   return (
     <Steps
@@ -29,10 +29,20 @@ const StepNavigator: React.FC = () => {
           goToStep(step);
         }
       }}
-      items={stepItems.map((item, idx) => ({
-        title: item.title,
-        description: completedSteps.has(idx) ? '已完成' : idx === currentStep ? '进行中' : '',
-      }))}
+      items={stepItems.map((item, idx) => {
+        const description = completedSteps.has(idx)
+          ? '已完成'
+          : staleSteps.has(idx)
+            ? '需重跑'
+            : idx === currentStep
+              ? '进行中'
+              : '';
+        return {
+          title: item.title,
+          description,
+          status: staleSteps.has(idx) && !completedSteps.has(idx) ? 'error' as const : undefined,
+        };
+      })}
       style={{ padding: '16px 8px', background: '#fff', borderRadius: 8 }}
     />
   );
