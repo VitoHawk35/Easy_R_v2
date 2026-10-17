@@ -33,6 +33,12 @@ LIMITATIONS_TEXT = (
     "建议获得独立外部数据验证后再用于临床决策。"
 )
 
+# E7a 过渡措施（不需方案确认）：方法学说明章节固定警示语
+E7A_WARNING_TEXT = (
+    "变量筛选在全部数据上完成，内部验证结果偏乐观；"
+    "内部验证不等于外部验证，结果不能直接用于临床决策。"
+)
+
 
 def _chart_png_bytes(chart: dict):
     """图表 dict → PNG 字节（Word 用）；失败返回 None。"""
@@ -96,6 +102,9 @@ def generate_word_report(report_data: dict) -> str:
 
     doc.add_heading("方法与评价协议", level=1)
     doc.add_paragraph(METHOD_TEXT)
+    warn_para = doc.add_paragraph()
+    warn_run = warn_para.add_run(f"注意：{E7A_WARNING_TEXT}")
+    warn_run.bold = True
 
     for num_title, sec in _numbered_sections(report_data):
         doc.add_heading(num_title, level=1)
@@ -162,6 +171,7 @@ def generate_preview_html(report_data: dict) -> str:
 
     parts.append("<h2>方法与评价协议</h2>")
     parts.append(f"<p>{html.escape(METHOD_TEXT)}</p>")
+    parts.append(f"<p><b>注意：</b>{html.escape(E7A_WARNING_TEXT)}</p>")
 
     for num_title, sec in _numbered_sections(report_data):
         parts.append(f"<h2>{html.escape(num_title)}</h2>")
@@ -234,6 +244,7 @@ def generate_pdf_report(report_data: dict) -> str:
     story.append(Spacer(1, 0.5*cm))
     story.append(Paragraph("方法与评价协议", heading_style))
     story.append(Paragraph(METHOD_TEXT, body_style))
+    story.append(Paragraph(f"<b>注意：</b>{E7A_WARNING_TEXT}", body_style))
 
     for num_title, sec in _numbered_sections(report_data):
         story.append(Paragraph(num_title, heading_style))
