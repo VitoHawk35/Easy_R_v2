@@ -97,3 +97,11 @@
 ### 修复18: diagnostics.py 变量类型判断过于简化
 - **文件**: `backend/app/routers/diagnostics.py`
 - **方案**: 结合 unique_count 判断逻辑型变量。
+
+---
+
+## 2026-10-17 · task-E0 测试脚手架
+
+- 新增 `backend/app/settings.py`，通过 `EASYR_DATA_DIR` / `EASYR_DEMO_PATH` 配置数据目录与演示数据路径，默认保持原 `backend/data/` 行为。
+- `data_service.py` 与 `report_service.py` 改为从 settings 读取路径，避免测试写入仓库数据目录。
+- 新增 `backend/tests/` 冒烟测试脚手架、`backend/requirements-dev.txt`；测试覆盖 `/api/health` 与登录后的 `/api/ml/logistic`。

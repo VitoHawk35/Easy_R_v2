@@ -15,7 +15,7 @@ from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+from app.settings import DATA_DIR
 
 METHOD_TEXT = (
     "本分析遵循临床预测模型标准工作流："
