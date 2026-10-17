@@ -16,7 +16,9 @@ from app.services.data_service import DATA_DIR
 
 USERS_DIR = os.path.join(DATA_DIR, "users")
 USERS_FILE = os.path.join(USERS_DIR, "users.json")
-SECRET_FILE = os.path.join(DATA_DIR, "auth_secret.txt")
+# 密钥文件默认放在 DATA_DIR 之外，避免通过任何 DATA_DIR 下的下载接口泄露。
+_DEFAULT_SECRET_FILE = os.path.abspath(os.path.join(DATA_DIR, os.pardir, "secrets", "auth_secret.txt"))
+SECRET_FILE = os.getenv("EASYR_SECRET_FILE", _DEFAULT_SECRET_FILE)
 TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 security = HTTPBearer()
 
@@ -25,14 +27,15 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _secret_file_path() -> str:
+    """运行时解析密钥文件路径，便于 EASYR_SECRET_FILE 覆盖。"""
+    return os.path.abspath(os.getenv("EASYR_SECRET_FILE") or SECRET_FILE)
+
+
 def _ensure_storage() -> None:
     os.makedirs(USERS_DIR, exist_ok=True)
     if not os.path.exists(USERS_FILE):
         _atomic_write_json(USERS_FILE, [])
-    if not os.path.exists(SECRET_FILE):
-        os.makedirs(DATA_DIR, exist_ok=True)
-        with open(SECRET_FILE, "w", encoding="utf-8") as f:
-            f.write(secrets.token_urlsafe(48))
 
 
 def _atomic_write_json(path: str, data: Any) -> None:
@@ -67,8 +70,27 @@ def _public_user(user: Dict[str, Any]) -> UserPublic:
 
 
 def _get_secret() -> bytes:
+    """签名密钥：优先 EASYR_AUTH_SECRET，否则读取/生成 EASYR_SECRET_FILE。"""
+    env_secret = os.getenv("EASYR_AUTH_SECRET")
+    if env_secret:
+        return env_secret.encode("utf-8")
+
     _ensure_storage()
-    with open(SECRET_FILE, "r", encoding="utf-8") as f:
+    secret_file = _secret_file_path()
+    if not os.path.exists(secret_file):
+        os.makedirs(os.path.dirname(secret_file), exist_ok=True)
+        try:
+            fd = os.open(secret_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass  # 并发启动时另一个进程已创建
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(secrets.token_urlsafe(48))
+            try:
+                os.chmod(secret_file, 0o600)
+            except OSError:
+                pass
+    with open(secret_file, "r", encoding="utf-8") as f:
         return f.read().strip().encode("utf-8")
 
 

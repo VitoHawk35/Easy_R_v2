@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Checkbox, Radio, Button, Space, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { useWizard } from '@/context/WizardContext';
-import { generateReport } from '@/services/api';
+import { generateReport, downloadReportFile } from '@/services/api';
 
 const Step10Report: React.FC = () => {
   const { state, markComplete } = useWizard();
@@ -11,7 +11,8 @@ const Step10Report: React.FC = () => {
     'diagnosis', 'filter', 'build', 'eval', 'viz', 'explain', 'validation'
   ]);
   const [loading, setLoading] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState('');
+  const [filename, setFilename] = useState('');
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
 
   const runGenerate = async () => {
@@ -58,21 +59,7 @@ const Step10Report: React.FC = () => {
       }
 
       const res = await generateReport(reportData, format);
-      // 把后端返回的相对路径 /api/report/download/xxx 拼成绝对 URL
-      // 优先用 VITE_API_BASE_URL 的源（去掉末尾 /api），否则用当前页面源
-      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api';
-      let origin = '';
-      try {
-        // apiBase 形如 "http://10.71.219.177:8005/api"
-        const u = new URL(apiBase, window.location.origin);
-        origin = u.origin;
-      } catch {
-        origin = window.location.origin;
-      }
-      const url = res.download_url.startsWith('http')
-        ? res.download_url
-        : `${origin}${res.download_url}`;
-      setDownloadUrl(url);
+      setFilename(res.filename);
       setPreviewHtml(res.preview_html || '');
       markComplete(9);
       message.success('报告生成完成');
@@ -80,6 +67,19 @@ const Step10Report: React.FC = () => {
       message.error(e?.response?.data?.detail || '报告生成失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!filename) return;
+    setDownloadLoading(true);
+    try {
+      // 必须走 axios，带 Authorization 头；直接打开 URL 会 401。
+      await downloadReportFile(filename);
+    } catch (e: any) {
+      message.error(e?.response?.data?.detail || '下载失败');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -118,11 +118,11 @@ const Step10Report: React.FC = () => {
         生成报告
       </Button>
 
-      {downloadUrl && (
+      {filename && (
         <Button
           type="default"
-          href={downloadUrl}
-          target="_blank"
+          loading={downloadLoading}
+          onClick={handleDownload}
           block
         >
           下载报告
@@ -134,6 +134,7 @@ const Step10Report: React.FC = () => {
           <iframe
             title="报告预览"
             srcDoc={previewHtml}
+            sandbox=""
             style={{ width: '100%', height: 600, border: '1px solid #e8e8e8', borderRadius: 4 }}
           />
         </Card>

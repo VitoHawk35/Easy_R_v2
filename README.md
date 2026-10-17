@@ -67,5 +67,10 @@ npm run dev
 3. 运行 `docker-compose up -d`
 4. 配置 Nginx 反向代理 (如果需要 HTTPS)
 
+### 签名密钥配置与轮换（安全必读）
+- 生产环境必须通过环境变量 `EASYR_AUTH_SECRET` 提供登录 token 的签名密钥（至少 32 字节的随机值）。未设置时回退到文件方式：`EASYR_SECRET_FILE` 指定路径，默认 `DATA_DIR/../secrets/auth_secret.txt`（位于 `DATA_DIR` 之外，首次启动自动生成并 `chmod 600`）。
+- **部署本版本后必须更换密钥**：旧版本把 `auth_secret.txt` 放在可下载的 `DATA_DIR` 内，可能已泄露。更换后所有已签发的 token 立即失效，用户需重新登录，这是预期行为。
+- 旧的 `DATA_DIR/auth_secret.txt` 可在确认不再使用后删除；新代码不会读取它。
+
 ## API文档
 启动后端后访问: http://localhost:8000/docs

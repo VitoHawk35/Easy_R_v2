@@ -9,6 +9,8 @@ import base64
 import html
 import io
 import os
+import re
+import secrets
 from datetime import datetime
 
 from docx import Document
@@ -16,6 +18,24 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from app.settings import DATA_DIR
+
+# 报告文件名：report_<yyyymmddHHMMSS>_<token_urlsafe(12) 的 16 字符>.<docx|pdf>
+REPORT_FILENAME_RE = re.compile(r"^report_[0-9]{14}_[A-Za-z0-9_-]{16}\.(docx|pdf)$")
+
+
+def get_user_reports_dir(user_id: str) -> str:
+    return os.path.join(DATA_DIR, "users", user_id, "reports")
+
+
+def _new_report_path(user_id: str, ext: str) -> str:
+    reports_dir = get_user_reports_dir(user_id)
+    os.makedirs(reports_dir, exist_ok=True)
+    filename = (
+        f"report_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        f"_{secrets.token_urlsafe(12)}.{ext}"
+    )
+    return os.path.join(reports_dir, filename)
+
 
 METHOD_TEXT = (
     "本分析遵循临床预测模型标准工作流："
@@ -87,7 +107,7 @@ def _meta_lines(report_data: dict):
     return lines
 
 
-def generate_word_report(report_data: dict) -> str:
+def generate_word_report(report_data: dict, user_id: str) -> str:
     doc = Document()
 
     title = doc.add_heading("临床预测模型分析报告", level=0)
@@ -148,7 +168,7 @@ def generate_word_report(report_data: dict) -> str:
         doc.add_paragraph(f"综合各评估维度，{report_data['model_type']} 为当前最优模型。")
     doc.add_paragraph(LIMITATIONS_TEXT)
 
-    output_path = os.path.join(DATA_DIR, f"report_{int(datetime.now().timestamp())}.docx")
+    output_path = _new_report_path(user_id, "docx")
     doc.save(output_path)
     return output_path
 
@@ -202,7 +222,7 @@ def generate_preview_html(report_data: dict) -> str:
     return "".join(parts)
 
 
-def generate_pdf_report(report_data: dict) -> str:
+def generate_pdf_report(report_data: dict, user_id: str) -> str:
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as RLTable, Image as RLImage, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -234,7 +254,7 @@ def generate_pdf_report(report_data: dict) -> str:
         "CustomBody", parent=styles["BodyText"], fontName=font_name,
         fontSize=10, alignment=TA_LEFT, spaceAfter=8)
 
-    output_path = os.path.join(DATA_DIR, f"report_{int(datetime.now().timestamp())}.pdf")
+    output_path = _new_report_path(user_id, "pdf")
     doc = SimpleDocTemplate(output_path, pagesize=A4,
                             rightMargin=2*cm, leftMargin=2*cm,
                             topMargin=2*cm, bottomMargin=2*cm)
