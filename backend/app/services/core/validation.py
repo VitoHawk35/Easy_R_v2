@@ -72,7 +72,18 @@ def run_repeated_cv(model_factory, scale, X: pd.DataFrame, y, groups=None,
 def optimism_bootstrap(model_factory, scale, X: pd.DataFrame, y, groups=None,
                        B=300, seed=7, variable_types=None,
                        progress_cb=None) -> dict:
-    """乐观度校正 Bootstrap 内部验证（有分组列时按患者重抽样）。
+    """乐观度校正 Bootstrap 内部验证（有放回抽样；有分组列时按患者整组重抽样）。
+
+    统计约定：
+    - 抽样单位：有 groups 时为患者组，否则为单条样本；每次有放回抽 n 个单位
+      （n = 单位总数），重复抽中的单位/样本在训练集中**保留重复**。
+    - 训练集：被抽中单位包含的全部原始样本（分组时组内样本一起进入训练集）。
+    - OOB（out-of-bag）：原始数据中**从未被抽中**的样本（分组时即所属组未被抽中的样本）。
+    - apparent AUC：全样本拟合模型在全样本上的 AUC；
+      auc_boot：本次重抽样训练集上的表观 AUC；
+      optimism = auc_boot - auc_test（auc_test 为本次模型在原始全样本上的 AUC）；
+      corrected AUC = apparent AUC - mean(optimism)。
+    - OOB AUC 用每次重抽样模型在未抽中样本上计算。
 
     返回 apparent / mean_optimism / corrected / OOB AUC 及分布。
     """
@@ -81,8 +92,10 @@ def optimism_bootstrap(model_factory, scale, X: pd.DataFrame, y, groups=None,
     if groups is not None:
         groups = pd.Series(groups).fillna("__NO_GROUP__").astype(str).to_numpy()
         units = np.unique(groups)
+        pos_by_unit = {u: np.flatnonzero(groups == u) for u in units}
     else:
         units = np.arange(len(X))
+        pos_by_unit = None
 
     pipe_full = make_pipeline(model_factory, scale, variable_types)
     pipe_full.fit(X, y)
@@ -92,18 +105,23 @@ def optimism_bootstrap(model_factory, scale, X: pd.DataFrame, y, groups=None,
     test_aucs, oob_aucs, optimisms = [], [], []
     for b in range(B):
         chosen = rng.choice(units, size=len(units), replace=True)
-        mask = np.isin(groups, chosen) if groups is not None else np.isin(np.arange(len(X)), chosen)
-        if len(np.unique(y[mask])) < 2 or mask.sum() < 10:
+        if groups is not None:
+            idx = np.concatenate([pos_by_unit[u] for u in chosen])
+        else:
+            idx = chosen
+        oob = np.setdiff1d(np.arange(len(X)), idx)
+        Xb, yb = X.iloc[idx], y[idx]
+        if len(np.unique(yb)) < 2 or len(idx) < 10:
             continue
         pipe = make_pipeline(model_factory, scale, variable_types)
         try:
-            pipe.fit(X[mask], y[mask])
+            pipe.fit(Xb, yb)
         except Exception:
             continue
-        auc_boot = float(roc_auc_score(y[mask], pipe.predict_proba(X[mask])[:, 1]))
+        auc_boot = float(roc_auc_score(yb, pipe.predict_proba(Xb)[:, 1]))
         auc_test = float(roc_auc_score(y, pipe.predict_proba(X)[:, 1]))
-        if (~mask).sum() >= 10 and len(np.unique(y[~mask])) == 2:
-            oob_aucs.append(float(roc_auc_score(y[~mask], pipe.predict_proba(X[~mask])[:, 1])))
+        if len(oob) >= 10 and len(np.unique(y[oob])) == 2:
+            oob_aucs.append(float(roc_auc_score(y[oob], pipe.predict_proba(X.iloc[oob])[:, 1])))
         optimisms.append(auc_boot - auc_test)
         test_aucs.append(auc_test)
         if progress_cb and (b + 1) % 50 == 0:
@@ -121,6 +139,7 @@ def optimism_bootstrap(model_factory, scale, X: pd.DataFrame, y, groups=None,
         "oob_auc_ci_high": float(np.nanpercentile(oob_aucs, 97.5)),
         "n_boot": int(len(test_aucs)),
         "grouped": groups is not None,
+        "resampling": "with_replacement",
         "test_auc_dist": test_aucs.tolist(),
         "optimism_dist": [float(v) for v in optimisms],
     }
