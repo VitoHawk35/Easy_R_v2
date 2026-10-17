@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.linear_model import ElasticNetCV, ElasticNet, LogisticRegressionCV, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_UP, COLOR_DOWN
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 import matplotlib.pyplot as plt
 
@@ -55,10 +55,10 @@ def run_elastic_net(request, fmt="svg"):
     }).sort_values("AbsCoefficient", ascending=False)
     fig, ax = plt.subplots(figsize=(8, max(5, len(coef_df)*0.35)))
     selected = coef_df[coef_df["Selected"]].sort_values("Coefficient")
-    colors = ["#2ecc71" if c > 0 else "#e74c3c" for c in selected["Coefficient"]]
+    colors = [COLOR_UP if c > 0 else COLOR_DOWN for c in selected["Coefficient"]]
     ax.barh(selected["Variable"], selected["Coefficient"], color=colors)
     ax.set_xlabel("Coefficient")
-    ax.set_title(f"Elastic Net Coefficients ({alpha_str}, l1_ratio={l1_ratio})")
+    ax.set_title(f"弹性网络系数（{alpha_str}, l1_ratio={l1_ratio}）")
     chart1 = ChartData(title="弹性网络系数", data=encode_figure(fig, fmt), type=fmt)
     table = TableData(title="Elastic Net系数表", headers=["Variable", "Coefficient", "Selected"],
                       rows=coef_df[["Variable", "Coefficient", "Selected"]].values.tolist())

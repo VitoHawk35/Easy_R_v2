@@ -276,15 +276,22 @@ const Step6Visual: React.FC = () => {
                   计算
                 </Button>
                 {prediction && (
-                  <div style={{ textAlign: 'center', padding: 16, background: '#f6ffed', borderRadius: 8, border: '1px solid #b7eb8f', marginTop: 12 }}>
-                    <div style={{ fontSize: 14, color: '#666' }}>预测概率</div>
-                    <div style={{ fontSize: 36, fontWeight: 'bold', color: '#2f855a' }}>
-                      {(prediction.probability * 100).toFixed(2)}%
-                    </div>
-                    <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                      线性预测值 (LP): {prediction.linear_predictor.toFixed(4)}
-                    </div>
-                  </div>
+                  <Alert
+                    type="success"
+                    showIcon={false}
+                    style={{ textAlign: 'center', marginTop: 12 }}
+                    message={<span style={{ fontSize: 14, color: 'var(--c-mute)' }}>预测概率</span>}
+                    description={
+                      <>
+                        <div className="mono-num" style={{ fontSize: 36, fontWeight: 500, color: 'var(--c-ink)' }}>
+                          {(prediction.probability * 100).toFixed(2)}%
+                        </div>
+                        <div className="mono-num" style={{ fontSize: 12, color: 'var(--c-mute)', marginTop: 4 }}>
+                          线性预测值 (LP): {prediction.linear_predictor.toFixed(4)}
+                        </div>
+                      </>
+                    }
+                  />
                 )}
               </Space>
             )}

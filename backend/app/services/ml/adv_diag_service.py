@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn.linear_model import LogisticRegression
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, ChartData, TableData
+from app.services.ml.utils import encode_figure, ChartData, TableData, COLOR_UP, COLOR_DOWN, COLOR_WARN, COLOR_MUTED
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 
@@ -67,46 +67,46 @@ def run_adv_diag(request, fmt='svg'):
     fig1, axes = plt.subplots(1, 2, figsize=(14, 5))
     ax1, ax2 = axes
     ax1.scatter(y_prob, std_residuals, alpha=0.6, edgecolors='none', s=40)
-    ax1.axhline(0, color='r', linestyle='--')
-    ax1.axhline(2, color='orange', linestyle=':', label='±2')
-    ax1.axhline(-2, color='orange', linestyle=':')
+    ax1.axhline(0, color=COLOR_UP, linestyle='--')
+    ax1.axhline(2, color=COLOR_WARN, linestyle=':', label='±2')
+    ax1.axhline(-2, color=COLOR_WARN, linestyle=':')
     ax1.set_xlabel("Fitted Values (Predicted Probability)")
     ax1.set_ylabel("Standardized Pearson Residuals")
-    ax1.set_title("Residuals vs Fitted")
+    ax1.set_title("残差-拟合值图")
     ax1.legend()
 
     # 2. Q-Q plot
     stats.probplot(std_residuals, dist="norm", plot=ax2)
-    ax2.set_title("Q-Q Plot (Normal)")
-    ax2.get_lines()[0].set_markerfacecolor('#3498db')
+    ax2.set_title("残差 Q-Q 图（正态）")
+    ax2.get_lines()[0].set_markerfacecolor(COLOR_DOWN)
     ax2.get_lines()[0].set_markersize(5)
-    ax2.get_lines()[1].set_color('#e74c3c')
+    ax2.get_lines()[1].set_color(COLOR_UP)
     charts.append(ChartData(title="残差分析", data=encode_figure(fig1, fmt), type=fmt))
 
     # 3. Cook's Distance
     fig2, ax3 = plt.subplots(figsize=(10, 5))
     ax3.stem(range(n), cooks_d, basefmt=" ")
-    ax3.axhline(4 / n, color='r', linestyle='--', label=f'4/n = {4/n:.3f}')
-    ax3.axhline(1, color='orange', linestyle=':', label='1.0')
+    ax3.axhline(4 / n, color=COLOR_UP, linestyle='--', label=f'4/n = {4/n:.3f}')
+    ax3.axhline(1, color=COLOR_WARN, linestyle=':', label='1.0')
     ax3.set_xlabel("Observation Index")
     ax3.set_ylabel("Cook's Distance")
-    ax3.set_title("Cook's Distance (Influence Detection)")
+    ax3.set_title("Cook 距离（影响点检测）")
     ax3.legend()
     charts.append(ChartData(title="Cook距离", data=encode_figure(fig2, fmt), type=fmt))
 
     # 4. Leverage vs Standardized Residuals
     fig3, ax4 = plt.subplots(figsize=(8, 6))
     ax4.scatter(leverage, std_residuals, alpha=0.6, s=40)
-    ax4.axhline(0, color='k', linestyle='--', linewidth=0.8)
-    ax4.axhline(2, color='orange', linestyle=':')
-    ax4.axhline(-2, color='orange', linestyle=':')
+    ax4.axhline(0, color=COLOR_MUTED, linestyle='--', linewidth=0.8)
+    ax4.axhline(2, color=COLOR_WARN, linestyle=':')
+    ax4.axhline(-2, color=COLOR_WARN, linestyle=':')
     # Average leverage = (p+1)/n
     avg_leverage = (p + 1) / n
-    ax4.axvline(2 * avg_leverage, color='r', linestyle='--', label=f'2×avg leverage = {2*avg_leverage:.3f}')
-    ax4.axvline(3 * avg_leverage, color='darkred', linestyle='--', label=f'3×avg leverage = {3*avg_leverage:.3f}')
+    ax4.axvline(2 * avg_leverage, color=COLOR_UP, linestyle='--', label=f'2×avg leverage = {2*avg_leverage:.3f}')
+    ax4.axvline(3 * avg_leverage, color=COLOR_DOWN, linestyle='--', label=f'3×avg leverage = {3*avg_leverage:.3f}')
     ax4.set_xlabel("Leverage (Hat Values)")
     ax4.set_ylabel("Standardized Residuals")
-    ax4.set_title("Leverage vs Standardized Residuals")
+    ax4.set_title("杠杆值-标准化残差图")
     ax4.legend()
     charts.append(ChartData(title="杠杆值-残差散点图", data=encode_figure(fig3, fmt), type=fmt))
 

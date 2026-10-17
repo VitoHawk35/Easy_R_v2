@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.linear_model import LassoCV, Lasso, LogisticRegressionCV, LogisticRegression, lasso_path
 from sklearn.preprocessing import StandardScaler
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_UP, COLOR_DOWN, COLOR_MUTED
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -33,10 +33,10 @@ def _plot_lasso_path(X_scaled: pd.DataFrame, y: pd.Series, alphas, is_classifier
 
     for i, col in enumerate(X_scaled.columns):
         ax.plot(x_vals, coefs[:, i], lw=1, label=col if i < 12 else None)
-    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
+    ax.axhline(0, color=COLOR_MUTED, linewidth=0.8, linestyle='--')
     ax.set_xlabel('Log Lambda')
     ax.set_ylabel('Coefficients')
-    ax.set_title('LASSO Coefficient Path')
+    ax.set_title('LASSO 系数路径')
     if X_scaled.shape[1] <= 12:
         ax.legend(fontsize=8, loc='best')
     return ChartData(title="LASSO系数路径图", data=encode_figure(fig, fmt), type=fmt)
@@ -62,11 +62,11 @@ def _plot_lasso_cv(model, is_classifier: bool, best_alpha: float, cv: int, fmt: 
         x_vals = np.log(lambdas)
         y_label = 'Mean Squared Error'
 
-    ax.errorbar(x_vals, mean_vals, yerr=se_vals, fmt='o-', color='#3498db', ecolor='lightgray', capsize=2)
-    ax.axvline(np.log(best_alpha), color='red', linestyle='--', label=f'lambda.min={best_alpha:.4g}')
+    ax.errorbar(x_vals, mean_vals, yerr=se_vals, fmt='o-', color=COLOR_DOWN, ecolor=COLOR_MUTED, capsize=2)
+    ax.axvline(np.log(best_alpha), color=COLOR_UP, linestyle='--', label=f'lambda.min={best_alpha:.4g}')
     ax.set_xlabel('Log Lambda')
     ax.set_ylabel(y_label)
-    ax.set_title(f'LASSO {cv}-Fold Cross-Validation')
+    ax.set_title(f'LASSO {cv} 折交叉验证')
     ax.legend()
     return ChartData(title=f"LASSO {cv}折交叉验证图", data=encode_figure(fig, fmt), type=fmt)
 
@@ -122,10 +122,10 @@ def run_lasso(request, fmt="svg"):
     # Charts
     fig, ax1 = plt.subplots(figsize=(8, 6))
     selected = coef_df[coef_df["Selected"]].sort_values("Coefficient")
-    colors = ["#2ecc71" if c > 0 else "#e74c3c" for c in selected["Coefficient"]]
+    colors = [COLOR_UP if c > 0 else COLOR_DOWN for c in selected["Coefficient"]]
     ax1.barh(selected["Variable"], selected["Coefficient"], color=colors)
     ax1.set_xlabel("Coefficient")
-    ax1.set_title(f"LASSO Coefficients (alpha={best_alpha:.4f})")
+    ax1.set_title(f"LASSO 系数（alpha={best_alpha:.4f}）")
     chart1 = ChartData(title="LASSO回归系数", data=encode_figure(fig, fmt), type=fmt)
     path_chart = _plot_lasso_path(X_scaled, y, alphas, is_classifier, seed, fmt)
     cv_chart = _plot_lasso_cv(model, is_classifier, best_alpha, cv, fmt)
@@ -214,9 +214,9 @@ def run_lasso_predict(request, fmt="svg"):
         "Coefficient": coefs
     }).sort_values("Coefficient", key=lambda x: abs(x), ascending=False)
     fig, ax = plt.subplots(figsize=(8, max(5, len(coef_df)*0.3)))
-    colors = ["#2ecc71" if c > 0 else "#e74c3c" for c in coef_df["Coefficient"]]
+    colors = [COLOR_UP if c > 0 else COLOR_DOWN for c in coef_df["Coefficient"]]
     ax.barh(coef_df["Variable"][::-1], coef_df["Coefficient"][::-1], color=colors[::-1])
-    ax.set_title(f"Lasso Prediction Model (alpha={alpha:.4f})")
+    ax.set_title(f"Lasso 预测模型（alpha={alpha:.4f}）")
     chart1 = ChartData(title="预测模型系数", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(
         title="模型评估指标",

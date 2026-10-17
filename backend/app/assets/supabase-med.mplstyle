@@ -1,0 +1,31 @@
+# Easy_R 统一图表样式（Supabase 医疗风格）
+#
+# 写法说明（与报告附录的差异，属必要的格式修正）：
+# 1) .mplstyle 中 `#` 会被当作行内注释起始符，因此标量颜色不能用 #RRGGBB；
+#    这里用等价的灰度浮点值（#dfdfdf=0.8745, #707070=0.4392, #ededed=0.9294）。
+# 2) prop_cycle 中的十六进制色按 matplotlib 官方内置样式的写法省略 #（会自动补全）。
+font.sans-serif   : Inter, PingFang SC, Microsoft YaHei, Arial Unicode MS, DejaVu Sans
+font.size         : 9
+axes.titlesize    : 11
+axes.titleweight  : medium
+axes.titlelocation: left
+axes.edgecolor    : 0.8745
+axes.linewidth    : 0.8
+axes.labelcolor   : 0.4392
+axes.prop_cycle   : cycler('color', ['171717', '3ecf8e', '644fc1', '054cff', 'e2005a', '707070'])
+axes.spines.top   : False
+axes.spines.right : False
+axes.grid         : True
+axes.grid.axis    : y
+grid.color        : 0.9294
+grid.linewidth    : 0.6
+xtick.color       : 0.4392
+ytick.color       : 0.4392
+xtick.major.size  : 0
+ytick.major.size  : 0
+legend.frameon    : False
+figure.dpi        : 150
+savefig.dpi       : 300
+savefig.bbox      : tight
+svg.fonttype      : none
+axes.unicode_minus: False

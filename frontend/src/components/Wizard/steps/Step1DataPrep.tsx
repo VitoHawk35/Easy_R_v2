@@ -366,7 +366,7 @@ const Step1DataPrep: React.FC<Step1Props> = ({ datasets, onDatasetChange, variab
             />
           )}
           <div>
-            <div style={{ marginBottom: 6, color: '#666' }}>
+            <div style={{ marginBottom: 6, color: 'var(--c-mute)' }}>
               分组变量（患者ID，可选）——同一患者的多条样本不会跨训练/验证集
             </div>
             <Select
@@ -382,7 +382,7 @@ const Step1DataPrep: React.FC<Step1Props> = ({ datasets, onDatasetChange, variab
             />
           </div>
           <div>
-            <div style={{ marginBottom: 6, color: '#666' }}>
+            <div style={{ marginBottom: 6, color: 'var(--c-mute)' }}>
               ID 变量（可选，标记后不作为模型特征；名为 id 的列会自动排除）
             </div>
             <Select

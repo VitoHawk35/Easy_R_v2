@@ -152,7 +152,7 @@ const Step4ModelBuild: React.FC = () => {
           />
         ) : (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ marginBottom: 8, color: '#666' }}>当前特征变量 ({finalVars.length})：</div>
+            <div style={{ marginBottom: 8, color: 'var(--c-mute)' }}>当前特征变量 ({finalVars.length})：</div>
             <div>
               {finalVars.map((v) => (
                 <Tag key={v} color="blue" style={{ marginBottom: 4 }}>{v}</Tag>
@@ -162,7 +162,7 @@ const Step4ModelBuild: React.FC = () => {
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ marginBottom: 8, color: '#666' }}>强制纳入变量（将额外加入模型）：</div>
+          <div style={{ marginBottom: 8, color: 'var(--c-mute)' }}>强制纳入变量（将额外加入模型）：</div>
           <Select
             mode="multiple"
             allowClear
@@ -176,7 +176,7 @@ const Step4ModelBuild: React.FC = () => {
 
         {mergedVars.length !== finalVars.length && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ marginBottom: 8, color: '#666' }}>最终纳入变量 ({mergedVars.length})：</div>
+            <div style={{ marginBottom: 8, color: 'var(--c-mute)' }}>最终纳入变量 ({mergedVars.length})：</div>
             <div>
               {mergedVars.map((v) => (
                 <Tag key={v} color={finalVars.includes(v) ? 'blue' : 'orange'} style={{ marginBottom: 4 }}>{v}</Tag>

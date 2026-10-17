@@ -74,7 +74,7 @@ const AuthPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--c-canvas)' }}>
       <Card title="EasyR 临床数据分析系统" style={{ width: 400 }}>
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={items} centered />
       </Card>

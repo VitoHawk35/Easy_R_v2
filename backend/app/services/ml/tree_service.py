@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_PURPLE
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -47,12 +47,12 @@ def run_decision_tree(request, fmt="svg"):
     ax1, ax2 = axes
     # Tree plot
     plot_tree(fitted_model, feature_names=feature_names, filled=True, rounded=True, fontsize=8, ax=ax1, max_depth=3)
-    ax1.set_title("Decision Tree Structure (Top 3 Levels)")
+    ax1.set_title("决策树结构（前 3 层）")
     # Importance plot
     top_imp = imp_df.head(15).sort_values("Importance")
-    ax2.barh(top_imp["Variable"], top_imp["Importance"], color="#3498db")
+    ax2.barh(top_imp["Variable"], top_imp["Importance"], color=COLOR_PURPLE)
     ax2.set_xlabel("Importance")
-    ax2.set_title("Feature Importance")
+    ax2.set_title("特征重要性")
     chart1 = ChartData(title="决策树结果", data=encode_figure(fig, fmt), type=fmt)
     # Tables
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])

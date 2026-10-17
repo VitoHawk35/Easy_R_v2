@@ -135,7 +135,7 @@ const Step10Report: React.FC = () => {
             title="报告预览"
             srcDoc={previewHtml}
             sandbox=""
-            style={{ width: '100%', height: 600, border: '1px solid #e8e8e8', borderRadius: 4 }}
+            style={{ width: '100%', height: 600, border: '1px solid var(--c-line-cool)', borderRadius: 4 }}
           />
         </Card>
       )}

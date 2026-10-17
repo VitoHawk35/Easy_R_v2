@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.base import clone
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_UP
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -44,10 +44,10 @@ def run_knn(request, fmt="svg"):
         scores.append(p.score(X_test, y_test))
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(list(k_range), scores, 'bo-')
-    ax.axvline(k, color='r', linestyle='--', label=f'Selected K={k}')
+    ax.axvline(k, color=COLOR_UP, linestyle='--', label=f'Selected K={k}')
     ax.set_xlabel('K')
     ax.set_ylabel('Score (Accuracy or R2)')
-    ax.set_title('K-NN K Value Selection')
+    ax.set_title('K-NN 近邻数选择')
     ax.legend()
     chart1 = ChartData(title="K值选择", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])

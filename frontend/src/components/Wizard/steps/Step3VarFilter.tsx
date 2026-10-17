@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Checkbox, InputNumber, Select, Button, Space, Tag, message } from 'antd';
+import { Card, Checkbox, InputNumber, Select, Button, Space, Tag, Alert, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { useWizard, featureCandidates } from '@/context/WizardContext';
 import { runML } from '@/services/api';
@@ -208,7 +208,7 @@ const Step3VarFilter: React.FC = () => {
           </Checkbox>
           {filterConfig.useRF && (
             <div style={{ marginLeft: 24, marginTop: 8 }}>
-              <div style={{ marginBottom: 6, color: '#666' }}>
+              <div style={{ marginBottom: 6, color: 'var(--c-mute)' }}>
                 入选用“按重要性降序取前 K 个”（默认 10），不再按“重要性 &gt; 0”几乎全选
               </div>
               <label style={{ marginRight: 8 }}>保留变量数 K</label>
@@ -302,19 +302,24 @@ const Step3VarFilter: React.FC = () => {
                 </Space>
               </div>
             )}
-            <div style={{ marginTop: 12, padding: 12, background: '#f6ffed', borderRadius: 4 }}>
-              <strong>最终筛选变量 ({filterResults.final.length}个):</strong>
-              <Space size={[0, 4]} wrap style={{ marginTop: 4 }}>
-                {filterResults.final.map((v) => (
-                  <Tag key={v} closable onClose={() => {
-                    const next = filterResults.final.filter((x) => x !== v);
-                    dispatch({ type: 'SET_FILTER_RESULTS', payload: { ...filterResults, final: next } });
-                  }}>
-                    {v}
-                  </Tag>
-                ))}
-              </Space>
-            </div>
+            <Alert
+              type="success"
+              showIcon={false}
+              style={{ marginTop: 12 }}
+              message={<strong>最终筛选变量 ({filterResults.final.length}个):</strong>}
+              description={
+                <Space size={[0, 4]} wrap style={{ marginTop: 4 }}>
+                  {filterResults.final.map((v) => (
+                    <Tag key={v} closable onClose={() => {
+                      const next = filterResults.final.filter((x) => x !== v);
+                      dispatch({ type: 'SET_FILTER_RESULTS', payload: { ...filterResults, final: next } });
+                    }}>
+                      {v}
+                    </Tag>
+                  ))}
+                </Space>
+              }
+            />
           </Space>
         </Card>
       )}

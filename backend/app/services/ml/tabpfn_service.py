@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_PURPLE
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import make_pipeline
 import matplotlib.pyplot as plt
@@ -77,9 +77,9 @@ def run_tabpfn(request, fmt="svg"):
     }).sort_values("Importance", ascending=False)
     fig, ax = plt.subplots(figsize=(8, max(5, len(imp_df) * 0.3)))
     top_imp = imp_df.head(15).sort_values("Importance")
-    ax.barh(top_imp["Variable"], top_imp["Importance"], color="#16a085")
+    ax.barh(top_imp["Variable"], top_imp["Importance"], color=COLOR_PURPLE)
     ax.set_xlabel("Permutation Importance")
-    ax.set_title("TabPFN Feature Importance")
+    ax.set_title("TabPFN 特征重要性")
     chart1 = ChartData(title="TabPFN结果", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])
     imp_table = TableData(title="特征重要性(排列重要性)", headers=["Variable", "Importance"], rows=imp_df.values.tolist())

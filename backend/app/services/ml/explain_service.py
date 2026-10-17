@@ -90,13 +90,13 @@ def run_shap(request, fmt="svg"):
     plt.figure(figsize=(8, 7))
     shap.summary_plot(shap_vals, X_test, feature_names=cols, show=False, plot_type="bar")
     fig1 = plt.gcf()
-    fig1.suptitle("SHAP Summary (Bar)")
+    fig1.suptitle("SHAP 特征贡献汇总（条形图）")
     chart1 = ChartData(title="SHAP特征重要性图", data=encode_figure(fig1, fmt), type=fmt)
     # SHAP Beeswarm
     plt.figure(figsize=(8, 7))
     shap.summary_plot(shap_vals, X_test, feature_names=cols, show=False)
     fig2 = plt.gcf()
-    fig2.suptitle("SHAP Beeswarm")
+    fig2.suptitle("SHAP 蜂群图")
     chart2 = ChartData(title="SHAP分布图", data=encode_figure(fig2, fmt), type=fmt)
     # Top features table
     mean_shap = np.abs(shap_vals).mean(axis=0)
@@ -129,7 +129,7 @@ def run_pdp(request, fmt="svg"):
     ax1.plot(grid, pdp_vals, 'b-', lw=2)
     ax1.set_xlabel(feature)
     ax1.set_ylabel("Average Prediction")
-    ax1.set_title(f"PDP: {feature}")
+    ax1.set_title(f"部分依赖图（PDP）：{feature}")
     ax1.grid(True, alpha=0.3)
     # ICE lines: 对每个样本，逐一沿 grid 计算预测值
     n_ice = min(50, len(X_copy))
@@ -146,7 +146,7 @@ def run_pdp(request, fmt="svg"):
     ax2.plot(grid, pdp_vals, 'r-', lw=2, label="PDP")
     ax2.set_xlabel(feature)
     ax2.set_ylabel("Prediction")
-    ax2.set_title(f"ICE + PDP: {feature}")
+    ax2.set_title(f"ICE + PDP：{feature}")
     ax2.legend()
     ax2.grid(True, alpha=0.3)
     chart1 = ChartData(title="PDP/ICE分析", data=encode_figure(fig, fmt), type=fmt)

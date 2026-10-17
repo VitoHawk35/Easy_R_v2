@@ -49,7 +49,7 @@ const VariablePanel: React.FC<VariablePanelProps> = ({
   return (
     <Card
       size="small"
-      style={{ width: 350, borderRadius: 0, borderLeft: '1px solid #f0f0f0', height: '100%', display: 'flex', flexDirection: 'column' }}
+      style={{ width: 350, borderRadius: 0, borderLeft: '1px solid var(--c-line-cool)', height: '100%', display: 'flex', flexDirection: 'column' }}
       bodyStyle={{ padding: 12, flex: 1, overflow: 'auto' }}
       title={
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
@@ -106,7 +106,7 @@ const VariablePanel: React.FC<VariablePanelProps> = ({
               gap: 8,
               padding: '4px 6px',
               borderRadius: 4,
-              background: selectedVars.has(v.name) ? '#f6ffed' : 'transparent',
+              background: selectedVars.has(v.name) ? 'var(--c-success-soft)' : 'transparent',
               cursor: 'pointer',
             }}
             onClick={() => onSelectVar(v.name, !selectedVars.has(v.name))}

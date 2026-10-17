@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.svm import SVC, SVR
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_MUTED
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -42,10 +42,10 @@ def run_svm(request, fmt="svg"):
     else:
         X_pca = np.asarray(X_s)
     fig, ax = plt.subplots(figsize=(8, 6))
-    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=y, cmap='viridis', edgecolors='k', alpha=0.7)
+    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=y, cmap='viridis', edgecolors=COLOR_MUTED, alpha=0.7)
     ax.set_xlabel('PC1' if X_s.shape[1] > 2 else 'X1')
     ax.set_ylabel('PC2' if X_s.shape[1] > 2 else 'X2')
-    ax.set_title(f'SVM {kernel.upper()} Kernel Data Distribution')
+    ax.set_title(f'SVM {kernel.upper()} 核数据分布')
     plt.colorbar(scatter, ax=ax, label=request.y_variable)
     chart1 = ChartData(title="SVM数据分布", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])
