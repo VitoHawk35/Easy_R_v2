@@ -30,15 +30,8 @@ from app.services.core.models import COMPARE_DEFAULTS, create_model, needs_scale
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import run_repeated_cv
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure
+from app.services.ml.utils import DATA_COLORS, COLOR_DOWN, COLOR_MUTED, encode_figure
 from app.models.schemas import ChartData, TableData
-
-MODEL_COLORS = {
-    "LR": "#000000", "Lasso": "#555555", "ENet": "#888888",
-    "DT": "#DC143C", "RF": "#8B4513", "SVM": "#006400", "KNN": "#4B0082",
-    "GBDT": "#00BFFF", "XGB": "#1E90FF", "LGBM": "#32CD32", "CatBoost": "#FF8C00",
-    "NB": "#9370DB", "MLP": "#FF1493", "TabPFN": "#008B8B", "LDA": "#2F4F4F", "QDA": "#D2691E",
-}
 
 
 def _fmt(v, digits=3):
@@ -116,18 +109,21 @@ def run_compare(request, fmt="svg"):
     if not ok:
         raise ValueError("所有模型均运行失败")
 
+    # 统一分类色按模型出现顺序分配，不再为每个模型写死颜色
+    model_colors = {name: DATA_COLORS[i % len(DATA_COLORS)] for i, name in enumerate(curves)}
+
     # ---------- Chart 1: ROC（平均 OOF） ----------
     fig_roc, ax_roc = plt.subplots(figsize=(7, 7))
     for name, (yy, oof) in curves.items():
         from sklearn.metrics import roc_curve, roc_auc_score
         fpr, tpr, _ = roc_curve(yy, oof)
         ax_roc.plot(fpr, tpr, label=f"{name} AUC={roc_auc_score(yy, oof):.3f}",
-                    color=MODEL_COLORS.get(name), linewidth=1.5)
-    ax_roc.plot([0, 1], [0, 1], "k--", linewidth=0.8, alpha=0.5)
+                    color=model_colors.get(name), linewidth=1.5)
+    ax_roc.plot([0, 1], [0, 1], color=COLOR_MUTED, linestyle="--", linewidth=0.8, alpha=0.5)
     ax_roc.set_xlim([-0.02, 1.02]); ax_roc.set_ylim([-0.02, 1.02])
     ax_roc.set_xlabel("1 - Specificity", fontsize=12)
     ax_roc.set_ylabel("Sensitivity", fontsize=12)
-    ax_roc.set_title(f"ROC Curves (OOF, {repeats}×{cv_folds}-fold CV)", fontsize=13, fontweight="bold")
+    ax_roc.set_title(f"ROC 曲线（OOF，{repeats}×{cv_folds} 折交叉验证）", fontsize=13, fontweight="bold")
     ax_roc.legend(loc="lower right", fontsize=9, frameon=False)
     ax_roc.set_aspect("equal", adjustable="box")
     plt.tight_layout()
@@ -137,13 +133,13 @@ def run_compare(request, fmt="svg"):
     fig_cd, (ax_cal, ax_dca) = plt.subplots(1, 2, figsize=(14, 7))
     for name, (yy, oof) in curves.items():
         cb = calibration_bins(yy, oof)
-        ax_cal.plot(cb["mean_pred"], cb["obs_rate"], "o-", color=MODEL_COLORS.get(name),
+        ax_cal.plot(cb["mean_pred"], cb["obs_rate"], "o-", color=model_colors.get(name),
                     label=name, markersize=4, linewidth=1.2)
-    ax_cal.plot([0, 1], [0, 1], "k--", linewidth=0.8, alpha=0.5)
+    ax_cal.plot([0, 1], [0, 1], color=COLOR_MUTED, linestyle="--", linewidth=0.8, alpha=0.5)
     ax_cal.set_xlim([-0.02, 1.02]); ax_cal.set_ylim([-0.02, 1.02])
     ax_cal.set_xlabel("Predicted Probability", fontsize=11)
     ax_cal.set_ylabel("Observed Probability", fontsize=11)
-    ax_cal.set_title("Calibration Curves (OOF)", fontsize=12, fontweight="bold")
+    ax_cal.set_title("校准曲线（OOF）", fontsize=12, fontweight="bold")
     ax_cal.legend(loc="upper left", fontsize=8, frameon=False)
     ax_cal.set_aspect("equal", adjustable="box")
 
@@ -151,16 +147,16 @@ def run_compare(request, fmt="svg"):
     for name, (yy, oof) in curves.items():
         dca = dca_curve(yy, oof)
         thresholds = dca["threshold"]
-        ax_dca.plot(dca["threshold"], dca["nb_model"], color=MODEL_COLORS.get(name), label=name, linewidth=1.2)
+        ax_dca.plot(dca["threshold"], dca["nb_model"], color=model_colors.get(name), label=name, linewidth=1.2)
     if thresholds is not None:
         yy0 = next(iter(curves.values()))[0]
         nb_all = yy0.mean() - (1 - yy0.mean()) * thresholds / (1 - thresholds)
-        ax_dca.plot(thresholds, nb_all, "k--", linewidth=0.8, alpha=0.6, label="Treat All")
-        ax_dca.axhline(0, color="k", ls=":", lw=0.8, alpha=0.6, label="Treat None")
+        ax_dca.plot(thresholds, nb_all, color=COLOR_MUTED, linestyle="--", linewidth=0.8, alpha=0.6, label="Treat All")
+        ax_dca.axhline(0, color=COLOR_MUTED, ls=":", lw=0.8, alpha=0.6, label="Treat None")
     ax_dca.set_xlim([0, 1])
     ax_dca.set_xlabel("Threshold Probability", fontsize=11)
     ax_dca.set_ylabel("Net Benefit", fontsize=11)
-    ax_dca.set_title("Decision Curve Analysis (OOF)", fontsize=12, fontweight="bold")
+    ax_dca.set_title("决策曲线分析（OOF）", fontsize=12, fontweight="bold")
     ax_dca.legend(loc="upper right", fontsize=8, frameon=False)
     ax_dca.set_aspect("equal", adjustable="box")
     plt.tight_layout()
@@ -172,10 +168,10 @@ def run_compare(request, fmt="svg"):
     names = [r["Model"] for r in ok_sorted]
     aucs = [r["auc_mean"] for r in ok_sorted]
     sds = [r["auc_sd"] for r in ok_sorted]
-    ax_bar.errorbar(aucs, np.arange(len(names)), xerr=sds, fmt="o", ms=5, capsize=3, color="#1E90FF")
+    ax_bar.errorbar(aucs, np.arange(len(names)), xerr=sds, fmt="o", ms=5, capsize=3, color=COLOR_DOWN)
     ax_bar.set_yticks(np.arange(len(names))); ax_bar.set_yticklabels(names, fontsize=9)
     ax_bar.set_xlabel(f"AUC-ROC (mean ± SD, {repeats} repeats)")
-    ax_bar.set_title("Discrimination Comparison (OOF)", fontsize=12, fontweight="bold")
+    ax_bar.set_title("区分度比较（OOF）", fontsize=12, fontweight="bold")
     plt.tight_layout()
     chart_bar = ChartData(title="多模型AUC对比（OOF）", data=encode_figure(fig_bar, fmt), type=fmt)
 

@@ -178,12 +178,12 @@ def generate_preview_html(report_data: dict) -> str:
     parts = [
         '<!DOCTYPE html><html><head><meta charset="utf-8"/>',
         '<style>body{font-family:"Microsoft YaHei",sans-serif;max-width:900px;margin:24px auto;'
-        'color:#222;line-height:1.7}h1{color:#2F855A;border-bottom:2px solid #2F855A;padding-bottom:4px}'
-        'h2{color:#2F855A;margin-top:28px}h3{color:#444;margin-bottom:6px}'
+        'color:#171717;line-height:1.7}h1{color:#171717;border-bottom:2px solid #dfdfdf;padding-bottom:4px}'
+        'h2{color:#171717;margin-top:28px}h3{color:#171717;margin-bottom:6px}'
         'table{border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:13px}'
-        'th,td{border:1px solid #b7dfc9;padding:5px 8px;text-align:center}'
-        'th{background:#2F855A;color:#fff}tr:nth-child(even){background:#F0FFF4}'
-        '.meta{color:#666}figure{margin:8px 0 20px}</style></head><body>',
+        'th,td{border:1px solid #dfdfdf;padding:5px 8px;text-align:center}'
+        'th{background:#171717;color:#ffffff}tr:nth-child(even){background:#fafafa}'
+        '.meta{color:#707070}figure{margin:8px 0 20px}</style></head><body>',
         "<h1>临床预测模型分析报告</h1>",
     ]
     for line in _meta_lines(report_data):
@@ -246,7 +246,7 @@ def generate_pdf_report(report_data: dict, user_id: str) -> str:
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         "CustomTitle", parent=styles["Heading1"], fontName=font_name,
-        fontSize=20, textColor="#2F855A", alignment=TA_CENTER, spaceAfter=20)
+        fontSize=20, textColor="#171717", alignment=TA_CENTER, spaceAfter=20)
     heading_style = ParagraphStyle(
         "CustomHeading", parent=styles["Heading2"], fontName=font_name,
         fontSize=14, spaceAfter=10, spaceBefore=12)
@@ -277,14 +277,14 @@ def generate_pdf_report(report_data: dict, user_id: str) -> str:
             rows = [["" if c is None else str(c) for c in row] for row in tbl.get("rows", [])]
             t = RLTable([headers] + rows, colWidths=[None]*len(headers))
             t.setStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), "#2F855A"),
+                ("BACKGROUND", (0, 0), (-1, 0), "#171717"),
                 ("TEXTCOLOR", (0, 0), (-1, 0), "#FFFFFF"),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("FONTNAME", (0, 0), (-1, -1), font_name),
                 ("FONTSIZE", (0, 0), (-1, 0), 10),
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("BACKGROUND", (0, 1), (-1, -1), "#F0FFF4"),
-                ("GRID", (0, 0), (-1, -1), 0.5, "#2F855A"),
+                ("BACKGROUND", (0, 1), (-1, -1), "#fafafa"),
+                ("GRID", (0, 0), (-1, -1), 0.5, "#dfdfdf"),
             ])
             story.append(t)
             story.append(Spacer(1, 0.3*cm))

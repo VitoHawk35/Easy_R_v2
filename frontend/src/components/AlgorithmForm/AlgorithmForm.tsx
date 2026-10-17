@@ -157,9 +157,9 @@ const AlgorithmForm: React.FC<AlgorithmFormProps> = ({
         )}
 
         <Form.Item label="特征变量">
-          <div style={{ minHeight: 40, border: '1px dashed #d9d9d9', borderRadius: 4, padding: 6, background: '#fafafa' }}>
+          <div style={{ minHeight: 40, border: '1px dashed var(--c-line)', borderRadius: 4, padding: 6, background: 'var(--c-canvas-soft)' }}>
             {selectedVars.size === 0 ? (
-              <span style={{ color: '#999' }}>请从右侧面板选择特征变量</span>
+              <span style={{ color: 'var(--c-mute)' }}>请从右侧面板选择特征变量</span>
             ) : (
               <Space size={[0, 4]} wrap>
                 {Array.from(selectedVars).map((name) => (

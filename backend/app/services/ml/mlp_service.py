@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, regression_metrics, ChartData, TableData, COLOR_MUTED
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -46,13 +46,13 @@ def run_mlp(request, fmt="svg"):
     ax1.plot(fitted_model.loss_curve_, 'b-')
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Loss")
-    ax1.set_title("MLP Training Loss Curve")
+    ax1.set_title("MLP 训练损失曲线")
     # Actual vs Predicted
-    ax2.scatter(y_test, y_pred, alpha=0.6, edgecolors='k')
+    ax2.scatter(y_test, y_pred, alpha=0.6, edgecolors=COLOR_MUTED)
     ax2.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
     ax2.set_xlabel("Actual")
     ax2.set_ylabel("Predicted")
-    ax2.set_title("Actual vs Predicted")
+    ax2.set_title("实际值 vs 预测值")
     chart1 = ChartData(title="神经网络结果", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])
     summary = f"神经网络完成。hidden_layers={hidden_layer_sizes}, activation={activation}, 迭代={len(fitted_model.loss_curve_)}。"

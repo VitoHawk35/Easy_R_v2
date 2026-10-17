@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, ChartData, TableData
+from app.services.ml.utils import encode_figure, ChartData, TableData, COLOR_UP, COLOR_DOWN
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -49,16 +49,16 @@ def run_vif(request, fmt="svg"):
     fig, axes = plt.subplots(2, 1, figsize=(10, 14))
     ax1, ax2 = axes
     # VIF bar
-    colors = ["#2ecc71" if (isinstance(v, (int, float)) and v < vif_threshold) else "#e74c3c" for v in vif_df["VIF"]]
+    colors = [COLOR_DOWN if (isinstance(v, (int, float)) and v < vif_threshold) else COLOR_UP for v in vif_df["VIF"]]
     ax1.barh(vif_df["Variable"][::-1], [v if isinstance(v, (int, float)) else 0 for v in vif_df["VIF"]][::-1], color=colors[::-1])
-    ax1.axvline(vif_threshold, color='r', linestyle='--', label=f'VIF阈值={vif_threshold}')
+    ax1.axvline(vif_threshold, color=COLOR_UP, linestyle='--', label=f'VIF阈值={vif_threshold}')
     ax1.set_xlabel("VIF")
-    ax1.set_title("VIF Analysis")
+    ax1.set_title("VIF 共线性分析")
     ax1.legend()
     # Correlation heatmap
     sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", center=0, ax=ax2, square=True,
                 annot_kws={"size": 7}, cbar_kws={"shrink": 0.8})
-    ax2.set_title("Correlation Matrix")
+    ax2.set_title("相关性矩阵")
     chart1 = ChartData(title="VIF与相关性诊断", data=encode_figure(fig, fmt), type=fmt)
     # Tables
     vif_table = TableData(title="VIF分析", headers=["Variable", "VIF", "Status"], rows=vif_df.values.tolist())

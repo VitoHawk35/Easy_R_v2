@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, ChartData, TableData, COLOR_UP, COLOR_DOWN, COLOR_MUTED
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -50,20 +50,20 @@ def run_logistic(request, fmt="svg"):
     ax1, ax2 = axes
     # Forest plot style
     sorted_coef = coef_df.sort_values("Coefficient")
-    colors = ["#2ecc71" if c > 0 else "#e74c3c" for c in sorted_coef["Coefficient"]]
+    colors = [COLOR_UP if c > 0 else COLOR_DOWN for c in sorted_coef["Coefficient"]]
     ax1.barh(sorted_coef["Variable"], sorted_coef["Coefficient"], color=colors)
-    ax1.axvline(0, color='k', linestyle='--')
+    ax1.axvline(0, color=COLOR_MUTED, linestyle='--')
     ax1.set_xlabel("Coefficient (log OR)")
-    ax1.set_title("Logistic Regression Coefficients")
+    ax1.set_title("Logistic 回归系数")
     # OR plot
     or_vals = sorted_coef["OR"].values
     or_vars = sorted_coef["Variable"].values
-    ax2.scatter(or_vals, range(len(or_vals)), color="#3498db", s=60)
-    ax2.axvline(1, color='k', linestyle='--')
+    ax2.scatter(or_vals, range(len(or_vals)), color=COLOR_DOWN, s=60)
+    ax2.axvline(1, color=COLOR_MUTED, linestyle='--')
     ax2.set_yticks(range(len(or_vals)))
     ax2.set_yticklabels(or_vars, fontsize=8)
     ax2.set_xlabel("Odds Ratio (OR)")
-    ax2.set_title("Odds Ratio Plot")
+    ax2.set_title("比值比（OR）图")
     ax2.set_xscale('log')
     chart1 = ChartData(title="Logistic回归结果", data=encode_figure(fig, fmt), type=fmt)
     table = TableData(title="回归系数与OR", headers=["Variable", "Coefficient", "OR"],
@@ -144,8 +144,8 @@ def run_logistic_screening(request, fmt="svg"):
         or_vals = plot_df["OR"].values.astype(float)
         ci_low = plot_df["CI95_Lower"].values.astype(float)
         ci_high = plot_df["CI95_Upper"].values.astype(float)
-        ax.errorbar(or_vals, y_pos, xerr=[or_vals - ci_low, ci_high - or_vals], fmt='o', color='#3498db', ecolor='gray', capsize=3)
-        ax.axvline(1, color='r', linestyle='--')
+        ax.errorbar(or_vals, y_pos, xerr=[or_vals - ci_low, ci_high - or_vals], fmt='o', color=COLOR_DOWN, ecolor=COLOR_MUTED, capsize=3)
+        ax.axvline(1, color=COLOR_UP, linestyle='--')
         ax.set_yticks(y_pos)
         ax.set_yticklabels(plot_df["Variable"], fontsize=8)
         ax.set_xscale('log')
@@ -153,7 +153,7 @@ def run_logistic_screening(request, fmt="svg"):
     else:
         ax.text(0.5, 0.5, "No valid variables", ha='center', va='center')
         ax.set_axis_off()
-    ax.set_title("Univariate Logistic Screening")
+    ax.set_title("Logistic 单因素筛选")
     chart = ChartData(title="Logistic单因素筛选OR森林图", data=encode_figure(fig, fmt), type=fmt)
 
     headers = ["Variable", "Coefficient", "OR", "CI95_Lower", "CI95_Upper", "PValue", "Selected", "Status"]

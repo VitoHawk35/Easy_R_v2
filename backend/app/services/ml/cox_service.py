@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, ChartData, TableData
+from app.services.ml.utils import encode_figure, ChartData, TableData, COLOR_UP, COLOR_DOWN, COLOR_MUTED
 from app.services.core.preprocessing import ClinicalPreprocessor
 import matplotlib.pyplot as plt
 
@@ -57,12 +57,12 @@ def run_cox(request, fmt="svg"):
         ci_high = np.exp(summary_df["coef upper 95%"].values) if "coef upper 95%" in summary_df.columns else hr * 1.2
         fig, ax = plt.subplots(figsize=(8, max(5, len(vars_names)*0.35)))
         y_pos = np.arange(len(vars_names))
-        ax.errorbar(hr, y_pos, xerr=[hr - ci_low, ci_high - hr], fmt='o', color='#3498db', ecolor='gray', capsize=3)
-        ax.axvline(1, color='r', linestyle='--')
+        ax.errorbar(hr, y_pos, xerr=[hr - ci_low, ci_high - hr], fmt='o', color=COLOR_DOWN, ecolor=COLOR_MUTED, capsize=3)
+        ax.axvline(1, color=COLOR_UP, linestyle='--')
         ax.set_yticks(y_pos)
         ax.set_yticklabels(vars_names, fontsize=9)
         ax.set_xlabel("Hazard Ratio (HR)")
-        ax.set_title("Cox Regression Hazard Ratios with 95% CI")
+        ax.set_title("Cox 回归风险比（95% CI）")
         ax.set_xscale('log')
         chart1 = ChartData(title="Cox回归HR", data=encode_figure(fig, fmt), type=fmt)
         headers = list(summary_df.columns)

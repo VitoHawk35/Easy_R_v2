@@ -19,7 +19,7 @@ from app.services.core.models import create_model, needs_scale, canonical_key
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import optimism_bootstrap
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure
+from app.services.ml.utils import encode_figure, COLOR_UP, COLOR_DOWN, COLOR_WARN
 from app.models.schemas import ChartData, TableData
 
 
@@ -59,14 +59,14 @@ def run_bootstrap(request, fmt="svg"):
     )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    axes[0].hist(res["test_auc_dist"], bins=30, color="#3498db", edgecolor="white", alpha=0.85)
-    axes[0].axvline(res["apparent_auc"], color="r", linestyle="--", label=f"Apparent={res['apparent_auc']:.3f}")
-    axes[0].axvline(res["corrected_auc"], color="g", linestyle="--", label=f"Corrected={res['corrected_auc']:.3f}")
+    axes[0].hist(res["test_auc_dist"], bins=30, color=COLOR_DOWN, edgecolor="white", alpha=0.85)
+    axes[0].axvline(res["apparent_auc"], color=COLOR_UP, linestyle="--", label=f"Apparent={res['apparent_auc']:.3f}")
+    axes[0].axvline(res["corrected_auc"], color=COLOR_WARN, linestyle="--", label=f"Corrected={res['corrected_auc']:.3f}")
     axes[0].set_xlabel("AUC"); axes[0].set_ylabel("Frequency")
     axes[0].set_title(f"Bootstrap 模型在全数据上的 AUC (n={res['n_boot']})")
     axes[0].legend()
-    axes[1].hist(res["optimism_dist"], bins=30, color="#e67e22", edgecolor="white", alpha=0.85)
-    axes[1].axvline(res["mean_optimism"], color="r", linestyle="--", label=f"Mean={res['mean_optimism']:.4f}")
+    axes[1].hist(res["optimism_dist"], bins=30, color=COLOR_WARN, edgecolor="white", alpha=0.85)
+    axes[1].axvline(res["mean_optimism"], color=COLOR_UP, linestyle="--", label=f"Mean={res['mean_optimism']:.4f}")
     axes[1].set_xlabel("Optimism (AUC_boot - AUC_full)")
     axes[1].set_ylabel("Frequency")
     axes[1].set_title("乐观度分布")

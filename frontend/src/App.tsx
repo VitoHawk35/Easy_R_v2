@@ -145,7 +145,7 @@ const AppShell: React.FC = () => {
   const renderContent = () => {
     if (!currentTab) {
       return (
-        <div style={{ textAlign: 'center', marginTop: 120, color: '#999' }}>
+        <div style={{ textAlign: 'center', marginTop: 120, color: 'var(--c-mute)' }}>
           <h2>EasyR 临床数据分析系统</h2>
           <p>请从左侧导航选择功能开始分析</p>
         </div>
@@ -179,7 +179,7 @@ const AppShell: React.FC = () => {
     }
 
     return (
-      <div style={{ textAlign: 'center', marginTop: 120, color: '#999' }}>
+      <div style={{ textAlign: 'center', marginTop: 120, color: 'var(--c-mute)' }}>
         <h2>{currentTab.label}</h2>
         <p>该功能正在开发中</p>
       </div>
@@ -191,15 +191,15 @@ const AppShell: React.FC = () => {
       <Sidebar onSelectAlgorithm={handleAddTab} onEnterWizard={handleEnterWizard} />
       <Layout style={{ marginLeft: 200 }}>
         <Content style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-          <div style={{ background: '#fff', padding: '8px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: 'var(--c-canvas)', padding: '8px 16px', borderBottom: '1px solid var(--c-line-cool)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div />
             <Space>
               <Button icon={<HistoryOutlined />} onClick={handleEnterHistory}>分析历史</Button>
-              <span style={{ color: '#666' }}><UserOutlined /> {user?.username}</span>
+              <span style={{ color: 'var(--c-mute)' }}><UserOutlined /> {user?.username}</span>
               <Button icon={<LogoutOutlined />} onClick={logout}>退出登录</Button>
             </Space>
           </div>
-          <div style={{ background: '#fff', padding: '8px 16px', borderBottom: '1px solid #f0f0f0' }}>
+          <div style={{ background: 'var(--c-canvas)', padding: '8px 16px', borderBottom: '1px solid var(--c-line-cool)' }}>
             <Tabs
               type="editable-card"
               hideAdd

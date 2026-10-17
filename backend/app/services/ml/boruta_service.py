@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, ChartData, TableData
+from app.services.ml.utils import encode_figure, ChartData, TableData, COLOR_UP, COLOR_DOWN, COLOR_WARN
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 import matplotlib.pyplot as plt
 
@@ -55,10 +55,10 @@ def run_boruta(request, fmt="svg"):
         }).sort_values("Importance", ascending=False)
     # Chart: feature importance bar plot
     fig, ax = plt.subplots(figsize=(10, max(6, len(result_df)*0.35)))
-    colors = result_df["Decision"].map({"Confirmed": "#2ecc71", "Tentative": "#f1c40f", "Rejected": "#e74c3c"})
+    colors = result_df["Decision"].map({"Confirmed": COLOR_DOWN, "Tentative": COLOR_WARN, "Rejected": COLOR_UP})
     ax.barh(result_df["Variable"][::-1], result_df["Importance"][::-1], color=colors[::-1])
     ax.set_xlabel("Importance / Support")
-    ax.set_title("Boruta Feature Selection Results")
+    ax.set_title("Boruta 特征筛选结果")
     ax.set_yticklabels(result_df["Variable"][::-1], fontsize=8)
     chart1 = ChartData(title="Boruta特征重要性", data=encode_figure(fig, fmt), type=fmt)
     # Table

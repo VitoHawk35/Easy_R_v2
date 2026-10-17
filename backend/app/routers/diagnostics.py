@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import MLRequest, MLResult, UserPublic
 from app.services.auth_service import get_current_user
 from app.services.data_service import get_data_for_ml, get_raw_data, assert_dataset_access
-from app.services.ml.utils import prepare_xy, encode_figure, ChartData, TableData
+from app.services.ml.utils import prepare_xy, encode_figure, ChartData, TableData, COLOR_UP, COLOR_DOWN
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -47,11 +47,11 @@ def missing_values(request: MLRequest, current_user: UserPublic = Depends(get_cu
         # Chart：直接用数值 pct，避免 int("12.5%") 抛异常
         fig, ax = plt.subplots(figsize=(10, max(4, len(missing_df) * 0.4)))
         pct_series = [pct_by_var[v] for v in missing_df["Variable"]]
-        colors = ["#e74c3c" if v > 20 else "#3498db" for v in pct_series]
+        colors = [COLOR_UP if v > 20 else COLOR_DOWN for v in pct_series]
         ax.barh(missing_df["Variable"][::-1], pct_series[::-1], color=colors[::-1])
         ax.set_xlabel("缺失比例 (%)")
         ax.set_title("缺失值诊断")
-        ax.axvline(20, color='r', linestyle='--', label='20%阈值')
+        ax.axvline(20, color=COLOR_UP, linestyle='--', label='20%阈值')
         ax.legend()
         chart = ChartData(title="缺失值分布", data=encode_figure(fig, "svg"), type="svg")
 

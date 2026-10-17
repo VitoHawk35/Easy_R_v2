@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
 from app.services.data_service import get_data_for_ml
-from app.services.ml.utils import encode_figure, classification_metrics, ChartData, TableData
+from app.services.ml.utils import encode_figure, classification_metrics, ChartData, TableData, COLOR_UP
 from app.services.core.preprocessing import encode_y
 from app.services.core.validation import train_test_pipeline
 import matplotlib.pyplot as plt
@@ -33,7 +33,7 @@ def run_naive_bayes(request, fmt="svg"):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(fpr, tpr, 'b-', lw=2, label=f'ROC (AUC={metrics.get("AUC",0):.3f})')
         ax.plot([0, 1], [0, 1], 'k--')
-        ax.set_xlabel('FPR'); ax.set_ylabel('TPR'); ax.set_title('ROC Curve'); ax.legend()
+        ax.set_xlabel('FPR'); ax.set_ylabel('TPR'); ax.set_title('ROC 曲线'); ax.legend()
         chart1 = ChartData(title="朴素贝叶斯ROC", data=encode_figure(fig, fmt), type=fmt)
     else:
         # Confusion matrix heatmap
@@ -45,10 +45,10 @@ def run_naive_bayes(request, fmt="svg"):
         ax.set_yticks(range(len(fitted_model.classes_)))
         ax.set_xticklabels(fitted_model.classes_)
         ax.set_yticklabels(fitted_model.classes_)
-        ax.set_xlabel('Predicted'); ax.set_ylabel('Actual'); ax.set_title('Confusion Matrix')
+        ax.set_xlabel('Predicted'); ax.set_ylabel('Actual'); ax.set_title('混淆矩阵')
         for i in range(len(fitted_model.classes_)):
             for j in range(len(fitted_model.classes_)):
-                ax.text(j, i, cm[i, j], ha='center', va='center', color='red')
+                ax.text(j, i, cm[i, j], ha='center', va='center', color=COLOR_UP)
         plt.colorbar(im, ax=ax)
         chart1 = ChartData(title="混淆矩阵", data=encode_figure(fig, fmt), type=fmt)
     metrics_table = TableData(title="评估指标", headers=["Metric", "Value"], rows=[[k, v] for k, v in metrics.items()])

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Steps } from 'antd';
+import { CheckOutlined } from '@ant-design/icons';
 import { useWizard } from '@/context/WizardContext';
 
 const stepItems = [
@@ -15,35 +16,39 @@ const stepItems = [
   { title: '导出报告' },
 ];
 
+/**
+ * 横向步骤条：近黑数字圆圈，当前步下方 2px 绿色指示条。
+ * 四种状态：完成（✓）/ 过期（warn pill「需重跑」）/ 当前（进行中）/ 未开始（灰）。
+ */
 const StepNavigator: React.FC = () => {
   const { state, goToStep } = useWizard();
   const { currentStep, completedSteps, staleSteps } = state;
 
   return (
     <Steps
-      direction="vertical"
+      className="wizard-steps"
+      direction="horizontal"
+      labelPlacement="vertical"
+      size="small"
+      responsive={false}
       current={currentStep}
       onChange={(step) => {
-        // Only allow navigation to completed steps or current step
+        // 仅允许跳到已完成步骤或当前步骤（与 E4 行为一致）
         if (completedSteps.has(step) || step === currentStep) {
           goToStep(step);
         }
       }}
       items={stepItems.map((item, idx) => {
-        const description = completedSteps.has(idx)
-          ? '已完成'
-          : staleSteps.has(idx)
-            ? '需重跑'
-            : idx === currentStep
-              ? '进行中'
-              : '';
+        const done = completedSteps.has(idx);
+        const stale = staleSteps.has(idx) && !done;
         return {
           title: item.title,
-          description,
-          status: staleSteps.has(idx) && !completedSteps.has(idx) ? 'error' as const : undefined,
+          icon: done ? <CheckOutlined /> : undefined,
+          status: done ? 'finish' as const : stale ? 'error' as const : undefined,
+          description: stale ? <span className="pill-warn">需重跑</span> : undefined,
         };
       })}
-      style={{ padding: '16px 8px', background: '#fff', borderRadius: 8 }}
+      style={{ padding: 0, background: 'transparent' }}
     />
   );
 };

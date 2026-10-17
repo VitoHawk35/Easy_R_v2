@@ -38,7 +38,7 @@ from app.services.core.metrics import bootstrap_auc_ci, calibration_bins, dca_cu
 from app.services.core.models import create_model, needs_scale
 from app.services.core.preprocessing import ClinicalPreprocessor, encode_y
 from app.services.data_service import DATA_DIR, assert_dataset_access, get_data_for_ml
-from app.services.ml.utils import ChartData, TableData, encode_figure
+from app.services.ml.utils import ChartData, TableData, encode_figure, COLOR_UP, COLOR_PURPLE, COLOR_MUTED
 
 router = APIRouter(prefix="/api/eval", tags=["evaluation"])
 
@@ -124,20 +124,20 @@ def external_validation(
         axes[0].plot(fpr, tpr, label=f"AUC = {auc:.3f}")
         axes[0].plot([0, 1], [0, 1], "k--")
         axes[0].set_xlabel("False Positive Rate"); axes[0].set_ylabel("True Positive Rate")
-        axes[0].set_title("External Validation ROC"); axes[0].legend(loc="lower right")
+        axes[0].set_title("外部验证 ROC 曲线"); axes[0].legend(loc="lower right")
 
         cb = calibration_bins(y_ext, y_prob)
-        axes[1].plot(cb["mean_pred"], cb["obs_rate"], "o-", color="#d62728")
+        axes[1].plot(cb["mean_pred"], cb["obs_rate"], "o-", color=COLOR_UP)
         axes[1].plot([0, 1], [0, 1], "k--")
         axes[1].set_xlabel("Predicted Probability"); axes[1].set_ylabel("Observed Rate")
-        axes[1].set_title("External Calibration")
+        axes[1].set_title("外部验证校准曲线")
 
         dca = dca_curve(y_ext, y_prob)
-        axes[2].plot(dca["threshold"], dca["nb_model"], color="#9467bd", label="Model")
+        axes[2].plot(dca["threshold"], dca["nb_model"], color=COLOR_PURPLE, label="Model")
         axes[2].plot(dca["threshold"], dca["nb_all"], "k--", lw=0.8, label="Treat all")
-        axes[2].axhline(0, color="k", ls=":", lw=0.8, label="Treat none")
+        axes[2].axhline(0, color=COLOR_MUTED, ls=":", lw=0.8, label="Treat none")
         axes[2].set_xlabel("Threshold Probability"); axes[2].set_ylabel("Net Benefit")
-        axes[2].set_title("External DCA"); axes[2].legend()
+        axes[2].set_title("外部验证决策曲线"); axes[2].legend()
         plt.tight_layout()
         chart = ChartData(title="外部验证（ROC/校准/DCA）", data=encode_figure(fig, "svg"), type="svg")
 

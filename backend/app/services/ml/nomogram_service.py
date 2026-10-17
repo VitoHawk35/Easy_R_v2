@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.special import logit
 
-from app.services.ml.utils import encode_figure, ChartData, TableData
+from app.services.ml.utils import encode_figure, ChartData, TableData, COLOR_INK, COLOR_UP, COLOR_DOWN
 from app.services.ml.predict_service import nomogram_context
 
 # 支持列线图/计算器的线性二分类模型
@@ -66,7 +66,7 @@ def draw_nomogram(variables, ranges, coefs, intercept=0.0, model_type='logistic'
         right_val = vmax if c >= 0 else vmin
         ax.text(5, y, f'{left_val:.3f}', fontsize=8, ha='right', va='center')
         ax.text(95, y, f'{right_val:.3f}', fontsize=8, ha='left', va='center')
-        color = '#2f855a' if c >= 0 else '#c53030'
+        color = COLOR_UP if c >= 0 else COLOR_DOWN
         ax.text(50, y + 0.3, f'{var} (β_raw={c:.3f})', fontsize=10, fontweight='bold',
                 ha='center', va='bottom', color=color)
 
@@ -81,20 +81,20 @@ def draw_nomogram(variables, ranges, coefs, intercept=0.0, model_type='logistic'
 
     # Total Points axis
     total_y = -0.6
-    ax.plot([10, 90], [total_y, total_y], color='#2f855a', linewidth=3)
+    ax.plot([10, 90], [total_y, total_y], color=COLOR_INK, linewidth=3)
     ax.text(50, total_y - 0.5, f'Total Points (0–{total_max:.1f})', fontsize=11,
-            fontweight='bold', ha='center', va='top', color='#2f855a')
+            fontweight='bold', ha='center', va='top', color=COLOR_INK)
     for frac in [0, 0.25, 0.5, 0.75, 1.0]:
         x_pos = 10 + frac * 80
-        ax.plot([x_pos, x_pos], [total_y - 0.1, total_y + 0.1], color='#2f855a', linewidth=1.5)
+        ax.plot([x_pos, x_pos], [total_y - 0.1, total_y + 0.1], color=COLOR_INK, linewidth=1.5)
         ax.text(x_pos, total_y - 0.3, f'{total_max * frac:.1f}', fontsize=8,
-                ha='center', va='top', color='#2f855a')
+                ha='center', va='top', color=COLOR_INK)
 
     # Probability axis：由 lp = offset + (D/100)·points 反解
     prob_y = -1.6
-    ax.plot([10, 90], [prob_y, prob_y], color='#3182ce', linewidth=3)
+    ax.plot([10, 90], [prob_y, prob_y], color=COLOR_DOWN, linewidth=3)
     ax.text(50, prob_y - 0.5, 'Probability', fontsize=11, fontweight='bold',
-            ha='center', va='top', color='#3182ce')
+            ha='center', va='top', color=COLOR_DOWN)
     prob_ticks = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
     for label_pct in prob_ticks:
         if denom <= 0:
@@ -102,9 +102,9 @@ def draw_nomogram(variables, ranges, coefs, intercept=0.0, model_type='logistic'
         total_points = (float(logit(label_pct)) - offset) * 100.0 / denom
         if 0 <= total_points <= total_max:
             x_pos = 10 + total_points / total_max * 80
-            ax.plot([x_pos, x_pos], [prob_y - 0.1, prob_y + 0.1], color='#3182ce', linewidth=1.5)
+            ax.plot([x_pos, x_pos], [prob_y - 0.1, prob_y + 0.1], color=COLOR_DOWN, linewidth=1.5)
             ax.text(x_pos, prob_y - 0.3, f'{label_pct:.0%}', fontsize=7,
-                    ha='center', va='top', color='#3182ce')
+                    ha='center', va='top', color=COLOR_DOWN)
 
     plt.tight_layout()
     chart = ChartData(title="Nomogram 列线图", data=encode_figure(fig, fmt), type=fmt)

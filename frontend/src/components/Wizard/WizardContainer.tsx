@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Layout, Button, Space, Divider } from 'antd';
+import { Layout, Button, Divider, Space } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { useWizard } from '@/context/WizardContext';
+import { useWizard, effectiveModelFeatures } from '@/context/WizardContext';
 import StepNavigator from './StepNavigator';
 import Step1DataPrep from './steps/Step1DataPrep';
 import Step2Diagnostics from './steps/Step2Diagnostics';
@@ -15,7 +15,7 @@ import Step9Validate from './steps/Step9Validate';
 import Step10Report from './steps/Step10Report';
 import type { VariableInfo, DatasetInfo } from '@/types';
 
-const { Sider, Content } = Layout;
+const { Content } = Layout;
 
 const stepComponents = [
   Step1DataPrep,
@@ -49,6 +49,26 @@ interface WizardInnerProps {
   variables: VariableInfo[];
 }
 
+/** 可点击的配置摘要 pill；仅做导航，不修改状态。 */
+const SummaryPill: React.FC<{ label: string; value: string; onClick: () => void }> = ({
+  label,
+  value,
+  onClick,
+}) => (
+  <span
+    role="button"
+    tabIndex={0}
+    className="pill-soft"
+    style={{ cursor: 'pointer' }}
+    onClick={onClick}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') onClick();
+    }}
+  >
+    {label} <strong>{value}</strong>
+  </span>
+);
+
 const WizardInner: React.FC<WizardInnerProps> = ({ datasets, onDatasetChange, variables }) => {
   const { state, dispatch, goToStep } = useWizard();
   const { currentStep, completedSteps } = state;
@@ -66,13 +86,50 @@ const WizardInner: React.FC<WizardInnerProps> = ({ datasets, onDatasetChange, va
   const canGoNext = completedSteps.has(currentStep);
   const canGoPrev = currentStep > 0;
 
+  // 配置摘要（Appearance only：数据全部来自现有 WizardState）
+  const datasetName = state.datasetInfo?.name || state.datasetId || '未选择';
+  const yName = state.yVariable || '未选择';
+  const groupName = state.groupVariable || '未设置';
+  const featureCount = effectiveModelFeatures(state).length;
+  const modelName = state.selectedModel
+    || state.bestModel
+    || (state.buildMode === 'compare' && state.compareModels.length > 0
+      ? `${state.compareModels.length} 个模型对比`
+      : '未选择');
+
   return (
-    <Layout style={{ minHeight: '100%', background: '#f5f5f5' }}>
-      <Sider width={200} style={{ background: 'transparent', marginRight: 16 }}>
+    <Layout
+      style={{
+        height: '100%',
+        minHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--c-canvas-soft)',
+      }}
+    >
+      <div style={{ background: 'var(--c-canvas)', borderRadius: 12, padding: '16px 16px 10px', marginBottom: 12 }}>
         <StepNavigator />
-      </Sider>
-      <Content style={{ background: '#fff', padding: 24, borderRadius: 8, overflow: 'auto' }}>
-        <h2 style={{ marginTop: 0, marginBottom: 16, color: '#2f855a' }}>
+        <Divider style={{ margin: '8px 0 10px' }} />
+        <Space size={[8, 8]} wrap>
+          <SummaryPill label="数据集" value={datasetName} onClick={() => goToStep(0)} />
+          <SummaryPill label="结局" value={`Y=${yName}`} onClick={() => goToStep(0)} />
+          <SummaryPill label="分组" value={groupName} onClick={() => goToStep(0)} />
+          <SummaryPill label="特征" value={`${featureCount}`} onClick={() => goToStep(2)} />
+          <SummaryPill label="模型" value={modelName} onClick={() => goToStep(3)} />
+        </Space>
+      </div>
+
+      <Content
+        style={{
+          background: 'var(--c-canvas)',
+          padding: 24,
+          borderRadius: 12,
+          overflow: 'auto',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <h2 style={{ marginTop: 0, marginBottom: 16, color: 'var(--c-ink)' }}>
           {stepTitles[currentStep]}
         </h2>
         <Divider style={{ margin: '12px 0' }} />
@@ -85,25 +142,41 @@ const WizardInner: React.FC<WizardInnerProps> = ({ datasets, onDatasetChange, va
         ) : (
           <CurrentStepComponent />
         )}
-        <Divider style={{ margin: '24px 0' }} />
-        <Space>
-          <Button
-            icon={<LeftOutlined />}
-            disabled={!canGoPrev}
-            onClick={() => goToStep(currentStep - 1)}
-          >
-            上一步
-          </Button>
-          <Button
-            type="primary"
-            icon={<RightOutlined />}
-            disabled={!canGoNext || currentStep >= 9}
-            onClick={() => goToStep(currentStep + 1)}
-          >
-            下一步
-          </Button>
-        </Space>
       </Content>
+
+      <footer
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          height: 64,
+          marginTop: 12,
+          padding: '0 24px',
+          background: 'var(--c-canvas)',
+          borderTop: '1px solid var(--c-line-cool)',
+          boxShadow: '0 -1px 3px rgba(0,0,0,.06)',
+          borderRadius: 12,
+        }}
+      >
+        <Button
+          icon={<LeftOutlined />}
+          disabled={!canGoPrev}
+          onClick={() => goToStep(currentStep - 1)}
+        >
+          上一步
+        </Button>
+        <span className="mono-num" style={{ fontSize: 12, color: 'var(--c-mute)' }}>
+          已完成 {completedSteps.size}/10 步
+        </span>
+        <Button
+          type="primary"
+          disabled={!canGoNext || currentStep >= 9}
+          onClick={() => goToStep(currentStep + 1)}
+        >
+          运行并继续 <RightOutlined />
+        </Button>
+      </footer>
     </Layout>
   );
 };

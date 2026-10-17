@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectAlgorithm, onEnterWizard }) =
 
   return (
     <Sider
-      theme="dark"
+      theme="light"
       width={200}
       style={{
         overflow: 'auto',
@@ -155,16 +155,25 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectAlgorithm, onEnterWizard }) =
         left: 0,
         top: 0,
         bottom: 0,
+        background: 'var(--c-canvas-soft)',
+        borderRight: '1px solid var(--c-line-cool)',
       }}
     >
-      <div style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 32, height: 32, background: '#2f855a', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: '#fff', fontWeight: 900 }}>R</span>
-        </div>
-        EasyR
+      <div style={{ color: 'var(--c-ink)', fontSize: 18, fontWeight: 500, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 8, letterSpacing: '-0.01em' }}>
+        <span>Easy R</span>
+        <span
+          aria-hidden
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: 'var(--c-green-500)',
+            display: 'inline-block',
+          }}
+        />
       </div>
       <Menu
-        theme="dark"
+        theme="light"
         mode="inline"
         defaultOpenKeys={['ml']}
         items={items as any}
