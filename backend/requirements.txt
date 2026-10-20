@@ -11,10 +11,11 @@ seaborn==0.13.2
 plotly==5.22.0
 xgboost==2.0.3
 catboost==1.2.5
-boruta-py==0.3.1
+Boruta==0.3  # E8: boruta-py was renamed to Boruta on PyPI (same package, same author)
 lifelines==0.28.0
 python-multipart==0.0.9
 shap==0.46.0
+# On macOS arm64, run `brew install libomp` before installing lightgbm
 lightgbm==4.3.0
 openpyxl==3.1.5
 python-docx==1.1.2
